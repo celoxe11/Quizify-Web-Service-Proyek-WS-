@@ -19,6 +19,12 @@ async function seedDatabase() {
     DROP TABLE IF EXISTS Question;
     DROP TABLE IF EXISTS Quiz;
     DROP TABLE IF EXISTS USER;
+    DROP TABLE IF EXISTS subscription;
+
+    CREATE TABLE subscription (
+        id_subs VARCHAR(5) PRIMARY KEY NOT NULL,
+        status ENUM ('Premium', 'Free') DEFAULT 'Free'
+    );
 
     CREATE TABLE USER (
         id VARCHAR(10) PRIMARY KEY,
@@ -26,10 +32,11 @@ async function seedDatabase() {
         email VARCHAR(100) UNIQUE NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
         role ENUM('admin', 'teacher', 'student') NOT NULL,
-        subscription_status VARCHAR(50),
+        subscription_id VARCHAR(5),
         is_active BOOLEAN DEFAULT TRUE,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (subscription_id) REFERENCES subscription(id_subs) ON DELETE SET NULL
     );
 
     CREATE TABLE Quiz (
@@ -97,10 +104,14 @@ async function seedDatabase() {
     await connection.query(schema);
 
     const seed = `
-    INSERT INTO USER (id, NAME, email, password_hash, role, subscription_status) VALUES
-      ('US001', 'Alice Teacher', 'alice@quizify.com', 'hashed_pass_1', 'teacher', 'premium'),
-      ('US002', 'Bob Student', 'bob@student.com', 'hashed_pass_2', 'student', 'free'),
-      ('US003', 'Charlie Admin', 'charlie@admin.com', 'hashed_pass_3', 'admin', 'premium');
+    INSERT INTO subscription (id_subs, status) VALUES
+      ('SUB01', 'Free'),
+      ('SUB02', 'Premium');
+
+    INSERT INTO USER (id, NAME, email, password_hash, role, subscription_id) VALUES
+      ('US001', 'Alice Teacher', 'alice@quizify.com', 'hashed_pass_1', 'teacher', 'SUB02'),
+      ('US002', 'Bob Student', 'bob@student.com', 'hashed_pass_2', 'student', 'SUB01'),
+      ('US003', 'Charlie Admin', 'charlie@admin.com', 'hashed_pass_3', 'admin', 'SUB02');
 
     INSERT INTO Quiz (id, title, description, category, created_by) VALUES
       ('QU001', 'Science Quiz', 'Test your science knowledge!', 'Science', 'US001'),

@@ -1,13 +1,15 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const dotenv = require("dotenv");
+
 dotenv.config();
 
-const authenticate = (req, res, next) => {
+const authenticate = async (req, res, next) => {
   const authHeader = req.header("Authorization");
-  console.log("Auth header:", authHeader);
 
-  if (!authHeader) return res.status(401).json({ message: "Access denied" });
+  if (!authHeader) {
+    return res.status(401).json({ message: "Access denied, no token provided" });
+  }
 
   // Extract token from "Bearer [token]" format
   const token = authHeader.startsWith("Bearer ")
@@ -15,8 +17,19 @@ const authenticate = (req, res, next) => {
     : authHeader;
 
   try {
-    const verified = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = verified;
+    // Verify token and decode payload
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.id;
+
+    // Find the user from the database
+    const user = await User.findByPk(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Attach user data to request object
+    req.user = user;
     next();
   } catch (error) {
     console.error("Token verification error:", error.message);
@@ -25,9 +38,24 @@ const authenticate = (req, res, next) => {
 };
 
 const isAdmin = (req, res, next) => {
-  if (req.user.role !== "admin")
-    return res.status(403).json({ message: "Forbidden" });
+  if (!req.user || req.user.role !== "admin") {
+    return res.status(403).json({ message: "Forbidden, admin access only" });
+  }
   next();
 };
 
-module.exports = { authenticate, isAdmin };
+const isTeacher = (req, res, next) => {
+  if (!req.user || req.user.role !== "teacher") {
+    return res.status(403).json({ message: "Forbidden, teacher access only" });
+  }
+  next();
+};
+
+const isStudent = (req, res, next) => {
+  if (!req.user || req.user.role !== "student") {
+    return res.status(403).json({ message: "Forbidden, student access only" });
+  }
+  next();
+};
+
+module.exports = { authenticate, isAdmin, isTeacher, isStudent };
