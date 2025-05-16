@@ -1,13 +1,18 @@
 const express = require('express');
 
 const { 
-    
+    newMenu,
+    getSubsList,
+    createTierList,
+    getTierList,
  } = require('../controllers/adminController');
 
- const { authenticate, isAdmin, cekLogin } = require('../middleware/authMiddleware');
+ const { authenticate, isAdmin } = require('../middleware/authMiddleware');
 
 const router = express.Router();
-router.post('/insert',authenticate, isAdmin,cekLogin, newMenu);
-router.post('/restock',authenticate, isAdmin,cekLogin, restock);
+router.get('/logaccess',authenticate, isAdmin, newMenu);
+router.get('/users',authenticate, isAdmin, getSubsList);
+router.post('/tierlist',authenticate, isAdmin, createTierList);
+router.get('/tierlist',authenticate, isAdmin, getTierList);
 
 module.exports = router;

@@ -1,13 +1,15 @@
 const express = require('express');
 
 const { 
-    
- } = require('../controllers/adminController');
+    doQuiz,
+    getGenerateQuestion,
+ } = require('../controllers/studentController');
 
- const { authenticate, isAdmin, cekLogin } = require('../middleware/authMiddleware');
+ const { authenticate, isStudent } = require('../middleware/authMiddleware');
 
 const router = express.Router();
-router.post('/insert',authenticate, isAdmin,cekLogin, newMenu);
-router.post('/restock',authenticate, isAdmin,cekLogin, restock);
+router.post('/quiz',authenticate, isStudent, doQuiz);
+router.get('/question/generate',authenticate, isStudent, getGenerateQuestion);   
+
 
 module.exports = router;
