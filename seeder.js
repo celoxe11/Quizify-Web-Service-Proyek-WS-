@@ -20,24 +20,27 @@ async function seedDatabase() {
     DROP TABLE IF EXISTS Quiz;
     DROP TABLE IF EXISTS USER;
     DROP TABLE IF EXISTS subscription;
+  DROP TABLE IF EXISTS UserLog;
 
-    CREATE TABLE subscription (
-        id_subs VARCHAR(5) PRIMARY KEY NOT NULL,
-        status ENUM ('Premium', 'Free') DEFAULT 'Free'
-    );
+  -- SUBSCRIPTION
+  CREATE TABLE Subscription (
+      id_subs INT PRIMARY KEY AUTO_INCREMENT,
+      STATUS ENUM ('Premium', 'Free') DEFAULT 'Free'
+  );
 
-    CREATE TABLE USER (
-        id VARCHAR(10) PRIMARY KEY,
-        NAME VARCHAR(100) NOT NULL,
-        email VARCHAR(100) UNIQUE NOT NULL,
-        password_hash VARCHAR(255) NOT NULL,
-        role ENUM('admin', 'teacher', 'student') NOT NULL,
-        subscription_id VARCHAR(5),
-        is_active BOOLEAN DEFAULT TRUE,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (subscription_id) REFERENCES subscription(id_subs) ON DELETE SET NULL
-    );
+  -- USER
+  CREATE TABLE USER (
+      id VARCHAR(10) PRIMARY KEY,
+      name VARCHAR(100) NOT NULL,
+      email VARCHAR(100) UNIQUE NOT NULL,
+      password_hash VARCHAR(255) NOT NULL,
+      role ENUM('teacher', 'student') NOT NULL,
+      subscription_id INT NOT NULL,
+      is_active BOOLEAN DEFAULT TRUE,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (subscription_id) REFERENCES subscription(id_subs) ON DELETE RESTRICT
+  );
 
     CREATE TABLE Quiz (
         id VARCHAR(10) PRIMARY KEY,
@@ -99,20 +102,33 @@ async function seedDatabase() {
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (question_id) REFERENCES Question(id) ON DELETE CASCADE,
         FOREIGN KEY (quiz_id) REFERENCES Quiz(id) ON DELETE SET NULL
+    );
+
+    CREATE TABLE UserLog (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id VARCHAR(10) not null,
+    action_type varchar(255) NOT NULL,
+    endpoint VARCHAR(255), 
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES USER(id) ON DELETE CASCADE
     );`;
 
     await connection.query(schema);
 
     const seed = `
-    INSERT INTO subscription (id_subs, status) VALUES
-      ('SUB01', 'Free'),
-      ('SUB02', 'Premium');
+    -- INSERT SUBSCRIPTION
+    INSERT INTO Subscription (STATUS) VALUES
+    ('Free'),
+    ('Premium');
 
-    INSERT INTO USER (id, NAME, email, password_hash, role, subscription_id) VALUES
-      ('US001', 'Alice Teacher', 'alice@quizify.com', 'hashed_pass_1', 'teacher', 'SUB02'),
-      ('US002', 'Bob Student', 'bob@student.com', 'hashed_pass_2', 'student', 'SUB01'),
-      ('US003', 'Charlie Admin', 'charlie@admin.com', 'hashed_pass_3', 'admin', 'SUB02');
+    -- INSERT USERS
+    INSERT INTO USER (id, NAME, email, password_hash, role, subscription_id)
+    VALUES
+    ('TE001', 'Alice Teacher', 'alice@quizify.com', 'hashed_pass_1', 'teacher', 2),
+    ('ST002', 'Bob Student', 'bob@student.com', 'hashed_pass_2', 'student', 1),
+    ('ST003', 'Charlie Admin', 'charlie@admin.com', 'hashed_pass_3', 'student', 2);
 
+    -- INSERT QUIZZES
     INSERT INTO Quiz (id, title, description, category, created_by) VALUES
       ('QU001', 'Science Quiz', 'Test your science knowledge!', 'Science', 'US001'),
       ('QU002', 'History Basics', 'A quiz on world history.', 'History', 'US001'),
