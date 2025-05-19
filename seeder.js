@@ -1,48 +1,54 @@
 const mysql = require('mysql2/promise');
+const { faker } = require('@faker-js/faker');
+const bcrypt = require('bcryptjs');
+
+async function hashPassword(password) {
+  const salt = await bcrypt.genSalt(10);
+  return await bcrypt.hash(password, salt);
+}
 
 async function seedDatabase() {
   const connection = await mysql.createConnection({
     host: 'localhost',
     user: 'root',
-    password: '', // sesuaikan dengan password MySQL kamu
+    password: '', // sesuaikan
     multipleStatements: true
   });
 
   try {
-    await connection.query(`DROP DATABASE IF EXISTS Quizify; CREATE DATABASE Quizify;`);
-    await connection.query(`USE Quizify;`);
+    await connection.query(`DROP DATABASE IF EXISTS Quizify; CREATE DATABASE Quizify; USE Quizify;`);
 
     const schema = `
-    DROP TABLE IF EXISTS SubmissionAnswer;
-    DROP TABLE IF EXISTS QuizSession;
-    DROP TABLE IF EXISTS QuestionAccuracy;
-    DROP TABLE IF EXISTS Question;
-    DROP TABLE IF EXISTS Quiz;
-    DROP TABLE IF EXISTS USER;
-    DROP TABLE IF EXISTS subscription;
-  DROP TABLE IF EXISTS UserLog;
+      DROP TABLE IF EXISTS SubmissionAnswer;
+      DROP TABLE IF EXISTS QuizSession;
+      DROP TABLE IF EXISTS QuestionAccuracy;
+      DROP TABLE IF EXISTS QuestionImage;
+      DROP TABLE IF EXISTS Question;
+      DROP TABLE IF EXISTS Quiz;
+      DROP TABLE IF EXISTS USER;
+      DROP TABLE IF EXISTS Subscription;
+      DROP TABLE IF EXISTS UserLog;
 
-  -- SUBSCRIPTION
-  CREATE TABLE Subscription (
-      id_subs INT PRIMARY KEY AUTO_INCREMENT,
-      STATUS ENUM ('Premium', 'Free') DEFAULT 'Free'
-  );
+      CREATE TABLE Subscription (
+        id_subs INT PRIMARY KEY AUTO_INCREMENT,
+        status ENUM ('Premium', 'Free') DEFAULT 'Free'
+      );
 
-  -- USER
-  CREATE TABLE USER (
-      id VARCHAR(10) PRIMARY KEY,
-      name VARCHAR(100) NOT NULL,
-      email VARCHAR(100) UNIQUE NOT NULL,
-      password_hash VARCHAR(255) NOT NULL,
-      role ENUM('teacher', 'student') NOT NULL,
-      subscription_id INT NOT NULL,
-      is_active BOOLEAN DEFAULT TRUE,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      FOREIGN KEY (subscription_id) REFERENCES subscription(id_subs) ON DELETE RESTRICT
-  );
+      CREATE TABLE USER (
+        id VARCHAR(10) PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        username VARCHAR(100) NOT NULL UNIQUE,
+        email VARCHAR(100) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        role ENUM('teacher', 'student') NOT NULL,
+        subscription_id INT NOT NULL,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (subscription_id) REFERENCES Subscription(id_subs) ON DELETE RESTRICT
+      );
 
-    CREATE TABLE Quiz (
+      CREATE TABLE Quiz (
         id VARCHAR(10) PRIMARY KEY,
         title VARCHAR(255) NOT NULL,
         description TEXT,
@@ -51,13 +57,13 @@ async function seedDatabase() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (created_by) REFERENCES USER(id) ON DELETE SET NULL
-    );
+      );
 
-    CREATE TABLE Question (
+      CREATE TABLE Question (
         id VARCHAR(10) PRIMARY KEY,
         quiz_id VARCHAR(10),
         category VARCHAR(100),
-        TYPE ENUM('multiple', 'boolean') NOT NULL,
+        type ENUM('multiple', 'boolean') NOT NULL,
         difficulty ENUM('easy', 'medium', 'hard') NOT NULL,
         question_text TEXT NOT NULL,
         correct_answer TEXT NOT NULL,
@@ -66,21 +72,31 @@ async function seedDatabase() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (quiz_id) REFERENCES Quiz(id) ON DELETE SET NULL
-    );
+      );
 
-    CREATE TABLE QuizSession (
+      CREATE TABLE QuestionImage (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id VARCHAR(10) NOT NULL,
+        question_id VARCHAR(10) NOT NULL,
+        image_url TEXT NOT NULL,
+        uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (question_id) REFERENCES Question(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES USER(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE QuizSession (
         id VARCHAR(10) PRIMARY KEY,
         quiz_id VARCHAR(10) NOT NULL,
         user_id VARCHAR(10) NOT NULL,
         started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         ended_at DATETIME,
         score INT,
-        STATUS ENUM('in_progress', 'completed', 'expired') DEFAULT 'in_progress',
+        status ENUM('in_progress', 'completed', 'expired') DEFAULT 'in_progress',
         FOREIGN KEY (quiz_id) REFERENCES Quiz(id) ON DELETE CASCADE,
         FOREIGN KEY (user_id) REFERENCES USER(id) ON DELETE CASCADE
-    );
+      );
 
-    CREATE TABLE SubmissionAnswer (
+      CREATE TABLE SubmissionAnswer (
         id VARCHAR(10) PRIMARY KEY,
         quiz_session_id VARCHAR(10) NOT NULL,
         question_id VARCHAR(10) NOT NULL,
@@ -89,9 +105,9 @@ async function seedDatabase() {
         answered_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (quiz_session_id) REFERENCES QuizSession(id) ON DELETE CASCADE,
         FOREIGN KEY (question_id) REFERENCES Question(id) ON DELETE CASCADE
-    );
+      );
 
-    CREATE TABLE QuestionAccuracy (
+      CREATE TABLE QuestionAccuracy (
         id VARCHAR(10) PRIMARY KEY,
         question_id VARCHAR(10) NOT NULL,
         quiz_id VARCHAR(10),
@@ -102,62 +118,108 @@ async function seedDatabase() {
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (question_id) REFERENCES Question(id) ON DELETE CASCADE,
         FOREIGN KEY (quiz_id) REFERENCES Quiz(id) ON DELETE SET NULL
-    );
+      );
 
-    CREATE TABLE UserLog (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id VARCHAR(10) not null,
-    action_type varchar(255) NOT NULL,
-    endpoint VARCHAR(255), 
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES USER(id) ON DELETE CASCADE
-    );`;
+      CREATE TABLE UserLog (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id VARCHAR(10) NOT NULL,
+        action_type VARCHAR(255) NOT NULL,
+        endpoint VARCHAR(255),
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES USER(id) ON DELETE CASCADE
+      );
+    `;
 
     await connection.query(schema);
 
-    const seed = `
-    -- INSERT SUBSCRIPTION
-    INSERT INTO Subscription (STATUS) VALUES
-    ('Free'),
-    ('Premium');
+    // Insert subscription static data
+    await connection.query(`
+      INSERT INTO Subscription (status) VALUES ('Free'), ('Premium');
+    `);
 
-    -- INSERT USERS
-    INSERT INTO USER (id, NAME, email, password_hash, role, subscription_id)
-    VALUES
-    ('TE001', 'Alice Teacher', 'alice@quizify.com', 'hashed_pass_1', 'teacher', 2),
-    ('ST002', 'Bob Student', 'bob@student.com', 'hashed_pass_2', 'student', 1),
-    ('ST003', 'Charlie Admin', 'charlie@admin.com', 'hashed_pass_3', 'student', 2);
+    // Generate users using Faker
+    const users = [];
+    const roles = ['teacher', 'student'];
+    for(let i=1; i<=10; i++) {
+      const role = roles[Math.floor(Math.random() * roles.length)];
+      const prefix = role === 'teacher' ? 'TE' : 'ST';
+      const id = `${prefix}${i.toString().padStart(3,'0')}`;
 
-    -- INSERT QUIZZES
-    INSERT INTO Quiz (id, title, description, category, created_by) VALUES
-      ('QU001', 'Science Quiz', 'Test your science knowledge!', 'Science', 'US001'),
-      ('QU002', 'History Basics', 'A quiz on world history.', 'History', 'US001'),
-      ('QU003', 'Mixed Knowledge', 'Combination of topics.', NULL, 'US001');
+      const name = faker.person.fullName();
+      const username = faker.internet.userName().toLowerCase();
+      const email = faker.internet.email().toLowerCase();
+      const rawPassword = faker.internet.password({ length: 10 });
+      const password_hash = await hashPassword(rawPassword);
+      const subscription_id = role === 'teacher' ? 2 : 1; // teacher premium, student free
+      
+       console.log(`🔐 ${email} | password: ${rawPassword}`);
 
-    INSERT INTO Question (id, quiz_id, category, TYPE, difficulty, question_text, correct_answer, incorrect_answers, is_generated) VALUES
-      ('Q001', 'QU001', 'Science: Computers', 'multiple', 'easy', 'What does CPU stand for?', 'Central Processing Unit', '["Computer Personal Unit", "Central Processor Unit", "Computer Processing Unit"]', TRUE),
-      ('Q002', 'QU001', 'Science: Computers', 'boolean', 'medium', 'The GPU is primarily used for rendering graphics.', 'True', '["False"]', TRUE),
-      ('Q003', 'QU002', 'History', 'multiple', 'hard', 'Who was the first emperor of Rome?', 'Augustus', '["Julius Caesar", "Nero", "Caligula"]', FALSE);
+      users.push([id, name, username, email, password_hash, role, subscription_id]);
+    }
 
-    INSERT INTO QuizSession (id, quiz_id, user_id, started_at, ended_at, score, STATUS) VALUES
-      ('QS001', 'QU001', 'US002', NOW(), NOW(), 80, 'completed'),
-      ('QS002', 'QU002', 'US002', NOW(), NOW(), 60, 'completed'),
-      ('QS003', 'QU003', 'US002', NOW(), NULL, NULL, 'in_progress');
+    // Bulk insert users
+    await connection.query(
+      `INSERT INTO USER (id, name, username, email, password_hash, role, subscription_id) VALUES ?`,
+      [users]
+    );
 
-    INSERT INTO SubmissionAnswer (id, quiz_session_id, question_id, selected_answer, is_correct) VALUES
-      ('SA001', 'QS001', 'Q001', 'Central Processing Unit', TRUE),
-      ('SA002', 'QS001', 'Q002', 'True', TRUE),
-      ('SA003', 'QS002', 'Q003', 'Julius Caesar', FALSE);
+    // Generate quizzes for teachers only
+    const quizzes = [];
+    for(let i=1; i<=5; i++) {
+      const id = `QU${i.toString().padStart(3,'0')}`;
+      const title = faker.lorem.words(3);
+      const description = faker.lorem.sentence();
+      const categories = ['Science', 'History', 'Math', 'Geography'];
+      const category = categories[Math.floor(Math.random() * categories.length)];
+      // Assign random teacher from users
+      const teachers = users.filter(u => u[5] === 'teacher');
+      const teacher = teachers[Math.floor(Math.random() * teachers.length)];
+      const created_by = teacher[0];
+      quizzes.push([id, title, description, category, created_by]);
+    }
 
-    INSERT INTO QuestionAccuracy (id, question_id, quiz_id, total_answered, correct_answers, incorrect_answers) VALUES
-      ('QA001', 'Q001', 'QU001', 5, 4, 1),
-      ('QA002', 'Q002', 'QU001', 5, 5, 0),
-      ('QA003', 'Q003', 'QU002', 5, 2, 3);`;
+    await connection.query(
+      `INSERT INTO Quiz (id, title, description, category, created_by) VALUES ?`,
+      [quizzes]
+    );
 
-    await connection.query(seed);
-    console.log("✅ Database Quizify berhasil disetup dan diisi dummy data.");
+    // Generate questions for quizzes
+    const questions = [];
+    let qIdCounter = 1;
+    const difficulties = ['easy', 'medium', 'hard'];
+    const types = ['multiple', 'boolean'];
+
+    for(const quiz of quizzes) {
+      const quiz_id = quiz[0];
+      const numberOfQuestions = faker.number.int({min: 3, max: 7});
+      for(let j=0; j<numberOfQuestions; j++) {
+        const id = `Q${qIdCounter.toString().padStart(3, '0')}`;
+        qIdCounter++;
+        const category = quiz[3];
+        const type = types[Math.floor(Math.random() * types.length)];
+        const difficulty = difficulties[Math.floor(Math.random() * difficulties.length)];
+        const question_text = faker.lorem.sentence();
+        const correct_answer = type === 'boolean' ? faker.helpers.arrayElement(['True', 'False']) : faker.lorem.word();
+        const incorrect_answers = type === 'boolean' ? JSON.stringify([correct_answer === 'True' ? 'False' : 'True']) : JSON.stringify([
+          faker.lorem.word(),
+          faker.lorem.word(),
+          faker.lorem.word()
+        ]);
+        const is_generated = true;
+
+        questions.push([id, quiz_id, category, type, difficulty, question_text, correct_answer, incorrect_answers, is_generated]);
+      }
+    }
+
+    await connection.query(
+      `INSERT INTO Question (id, quiz_id, category, type, difficulty, question_text, correct_answer, incorrect_answers, is_generated) VALUES ?`,
+      [questions]
+    );
+
+    console.log("✅ Database dan data dummy berhasil dibuat dengan Faker.");
+
   } catch (err) {
-    console.error("❌ Gagal setup database:", err.message);
+    console.error('❌ Gagal setup database:', err);
   } finally {
     await connection.end();
   }

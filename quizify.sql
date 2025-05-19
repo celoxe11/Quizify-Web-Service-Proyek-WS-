@@ -7,6 +7,7 @@ DROP TABLE IF EXISTS SubmissionAnswer;
 DROP TABLE IF EXISTS QuizSession;
 DROP TABLE IF EXISTS QuestionAccuracy;
 DROP TABLE IF EXISTS Question;
+DROP TABLE IF EXISTS QuestionImage;
 DROP TABLE IF EXISTS Quiz;
 DROP TABLE IF EXISTS USER;
 DROP TABLE IF EXISTS Subscription;
@@ -22,6 +23,7 @@ CREATE TABLE Subscription (
 CREATE TABLE USER (
     id VARCHAR(10) PRIMARY KEY,
     `name` VARCHAR(100) NOT NULL,
+    username VARCHAR(100) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     role ENUM('teacher', 'student') NOT NULL,
@@ -58,6 +60,17 @@ CREATE TABLE Question (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (quiz_id) REFERENCES Quiz(id) ON DELETE SET NULL
+);
+
+-- QUESTIONS IMAGE
+CREATE TABLE QuestionImage (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id VARCHAR(10) NOT NULL,
+    question_id VARCHAR(10) NOT NULL,
+    image_url TEXT NOT NULL,
+    uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (question_id) REFERENCES Question(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES USER(id) ON DELETE CASCADE
 );
 
 CREATE TABLE UserLog (
@@ -114,11 +127,11 @@ INSERT INTO Subscription (STATUS) VALUES
 ('Premium');
 
 -- INSERT USERS
-INSERT INTO USER (id, NAME, email, password_hash, role, subscription_id)
+INSERT INTO USER (id, NAME, username, email, password_hash, role, subscription_id)
 VALUES
-('TE001', 'Alice Teacher', 'alice@quizify.com', 'hashed_pass_1', 'teacher', 2),
-('ST002', 'Bob Student', 'bob@student.com', 'hashed_pass_2', 'student', 1),
-('ST003', 'Charlie Admin', 'charlie@admin.com', 'hashed_pass_3', 'student', 2);
+('TE001', 'Alice Teacher', 'Alice', 'alice@quizify.com', 'hashed_pass_1', 'teacher', 2),
+('ST002', 'Bob Student', 'Bob', 'bob@student.com', 'hashed_pass_2', 'student', 1),
+('ST003', 'Charlie Admin', 'Charlie', 'charlie@admin.com', 'hashed_pass_3', 'student', 2);
 
 -- QUIZZES
 INSERT INTO Quiz (id, title, description, category, created_by)

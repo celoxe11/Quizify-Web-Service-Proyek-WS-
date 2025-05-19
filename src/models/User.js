@@ -10,6 +10,14 @@ const User = sequelize.define("User", {
     type: DataTypes.STRING(100),
     allowNull: false,
   },
+  name: {
+    type: DataTypes.STRING(100),
+    allowNull: false,
+  },
+  username: {
+    type: DataTypes.STRING(100),
+    allowNull: false,
+  },
   email: {
     type: DataTypes.STRING(100),
     allowNull: false,
@@ -20,11 +28,12 @@ const User = sequelize.define("User", {
     allowNull: false,
   },
   role: {
-    type: DataTypes.ENUM("admin", "teacher", "student"),
+    type: DataTypes.ENUM("teacher", "student"),
     allowNull: false,
   },
-  subscription_status: {
-    type: DataTypes.STRING(50),
+  subscription_id: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
   },
   is_active: {
     type: DataTypes.BOOLEAN,

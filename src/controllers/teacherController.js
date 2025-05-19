@@ -1,11 +1,9 @@
 const bcrypt = require('bcryptjs');
 const jwt = require("jsonwebtoken");
 
-const createQuiz = async (req, res) => {
-    const { error, value } = schema.validate(req.body);
-    if (error) return res.status(400).json({ message: error.message });
 
-    try {
+const createQuiz = async (req, res) => {
+   try {
         
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -13,9 +11,6 @@ const createQuiz = async (req, res) => {
 };
 
 const createQuestion = async (req, res) => {
-    const { error, value } = schema.validate(req.body);
-    if (error) return res.status(400).json({ message: error.message });
-
     try {
         
     } catch (error) {
@@ -24,9 +19,6 @@ const createQuestion = async (req, res) => {
 };
 
 const updateQuestion = async (req, res) => {
-    const { error, value } = schema.validate(req.body);
-    if (error) return res.status(400).json({ message: error.message });
-
     try {
         
     } catch (error) {
@@ -35,9 +27,6 @@ const updateQuestion = async (req, res) => {
 };
 
 const generateQuestion = async (req, res) => {
-    const { error, value } = schema.validate(req.body);
-    if (error) return res.status(400).json({ message: error.message });
-
     try {
         
     } catch (error) {
@@ -46,9 +35,6 @@ const generateQuestion = async (req, res) => {
 };
 
 const deleteQuestion = async (req, res) => {
-    const { error, value } = schema.validate(req.body);
-    if (error) return res.status(400).json({ message: error.message });
-
     try {
         
     } catch (error) {
@@ -57,10 +43,7 @@ const deleteQuestion = async (req, res) => {
 };
 
 const getQuiz = async (req, res) => {
-    const { error, value } = schema.validate(req.body);
-    if (error) return res.status(400).json({ message: error.message });
-
-    try {
+   try {
         
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -68,9 +51,6 @@ const getQuiz = async (req, res) => {
 };
 
 const startQuiz = async (req, res) => {
-    const { error, value } = schema.validate(req.body);
-    if (error) return res.status(400).json({ message: error.message });
-
     try {
         
     } catch (error) {
@@ -79,9 +59,6 @@ const startQuiz = async (req, res) => {
 };
 
 const updateQuizSession = async (req, res) => {
-    const { error, value } = schema.validate(req.body);
-    if (error) return res.status(400).json({ message: error.message });
-
     try {
         
     } catch (error) {
@@ -91,9 +68,6 @@ const updateQuizSession = async (req, res) => {
 
 
 const getAccuration = async (req, res) => {
-    const { error, value } = schema.validate(req.body);
-    if (error) return res.status(400).json({ message: error.message });
-
     try {
         
     } catch (error) {
