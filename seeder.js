@@ -31,7 +31,7 @@ async function seedDatabase() {
 
       CREATE TABLE Subscription (
         id_subs INT PRIMARY KEY AUTO_INCREMENT,
-        status ENUM ('Premium', 'Free') DEFAULT 'Free'
+        status VARCHAR(50) DEFAULT 'Free'
       );
 
       CREATE TABLE USER (
@@ -132,32 +132,37 @@ async function seedDatabase() {
 
     await connection.query(schema);
 
-    // Insert subscription static data
+    // Insert Subscription Tiers
     await connection.query(`
       INSERT INTO Subscription (status) VALUES ('Free'), ('Premium');
     `);
 
+    // Ambil ID dari Subscription berdasarkan status
+    const [subsRows] = await connection.query(`SELECT id_subs, status FROM Subscription`);
+    const subsMap = {};
+    for (const row of subsRows) {
+      subsMap[row.status] = row.id_subs;
+    }
+
     // Generate users using Faker
     const users = [];
     const roles = ['teacher', 'student'];
-    for(let i=1; i<=10; i++) {
+    for (let i = 1; i <= 10; i++) {
       const role = roles[Math.floor(Math.random() * roles.length)];
       const prefix = role === 'teacher' ? 'TE' : 'ST';
-      const id = `${prefix}${i.toString().padStart(3,'0')}`;
+      const id = `${prefix}${i.toString().padStart(3, '0')}`;
 
       const name = faker.person.fullName();
       const username = faker.internet.userName().toLowerCase();
       const email = faker.internet.email().toLowerCase();
       const rawPassword = faker.internet.password({ length: 10 });
       const password_hash = await hashPassword(rawPassword);
-      const subscription_id = role === 'teacher' ? 2 : 1; // teacher premium, student free
-      
-       console.log(`🔐 ${email} | password: ${rawPassword}`);
+      const subscription_id = role === 'teacher' ? subsMap["Premium"] : subsMap["Free"];
 
+      console.log(`🔐 ${email} | password: ${rawPassword}`);
       users.push([id, name, username, email, password_hash, role, subscription_id]);
     }
 
-    // Bulk insert users
     await connection.query(
       `INSERT INTO USER (id, name, username, email, password_hash, role, subscription_id) VALUES ?`,
       [users]
@@ -165,16 +170,17 @@ async function seedDatabase() {
 
     // Generate quizzes for teachers only
     const quizzes = [];
-    for(let i=1; i<=5; i++) {
-      const id = `QU${i.toString().padStart(3,'0')}`;
+    for (let i = 1; i <= 5; i++) {
+      const id = `QU${i.toString().padStart(3, '0')}`;
       const title = faker.lorem.words(3);
       const description = faker.lorem.sentence();
       const categories = ['Science', 'History', 'Math', 'Geography'];
       const category = categories[Math.floor(Math.random() * categories.length)];
-      // Assign random teacher from users
+
       const teachers = users.filter(u => u[5] === 'teacher');
       const teacher = teachers[Math.floor(Math.random() * teachers.length)];
       const created_by = teacher[0];
+
       quizzes.push([id, title, description, category, created_by]);
     }
 
@@ -183,16 +189,17 @@ async function seedDatabase() {
       [quizzes]
     );
 
-    // Generate questions for quizzes
+    // Generate questions
     const questions = [];
     let qIdCounter = 1;
     const difficulties = ['easy', 'medium', 'hard'];
     const types = ['multiple', 'boolean'];
 
-    for(const quiz of quizzes) {
+    for (const quiz of quizzes) {
       const quiz_id = quiz[0];
-      const numberOfQuestions = faker.number.int({min: 3, max: 7});
-      for(let j=0; j<numberOfQuestions; j++) {
+      const numQuestions = faker.number.int({ min: 3, max: 7 });
+
+      for (let j = 0; j < numQuestions; j++) {
         const id = `Q${qIdCounter.toString().padStart(3, '0')}`;
         qIdCounter++;
         const category = quiz[3];
@@ -200,14 +207,15 @@ async function seedDatabase() {
         const difficulty = difficulties[Math.floor(Math.random() * difficulties.length)];
         const question_text = faker.lorem.sentence();
         const correct_answer = type === 'boolean' ? faker.helpers.arrayElement(['True', 'False']) : faker.lorem.word();
-        const incorrect_answers = type === 'boolean' ? JSON.stringify([correct_answer === 'True' ? 'False' : 'True']) : JSON.stringify([
-          faker.lorem.word(),
-          faker.lorem.word(),
-          faker.lorem.word()
-        ]);
+        const incorrect_answers = type === 'boolean'
+          ? JSON.stringify([correct_answer === 'True' ? 'False' : 'True'])
+          : JSON.stringify([faker.lorem.word(), faker.lorem.word(), faker.lorem.word()]);
         const is_generated = true;
 
-        questions.push([id, quiz_id, category, type, difficulty, question_text, correct_answer, incorrect_answers, is_generated]);
+        questions.push([
+          id, quiz_id, category, type, difficulty,
+          question_text, correct_answer, incorrect_answers, is_generated
+        ]);
       }
     }
 
@@ -217,7 +225,6 @@ async function seedDatabase() {
     );
 
     console.log("✅ Database dan data dummy berhasil dibuat dengan Faker.");
-
   } catch (err) {
     console.error('❌ Gagal setup database:', err);
   } finally {

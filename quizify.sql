@@ -16,7 +16,7 @@ DROP TABLE IF EXISTS UserLog;
 -- SUBSCRIPTION
 CREATE TABLE Subscription (
     id_subs INT PRIMARY KEY AUTO_INCREMENT,
-    STATUS ENUM ('Premium', 'Free') DEFAULT 'Free'
+    STATUS VARCHAR(50) DEFAULT 'Free'
 );
 
 -- USER

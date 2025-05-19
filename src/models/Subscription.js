@@ -8,8 +8,10 @@ const Subscription = sequelize.define("Subscription", {
     primaryKey: true,
   },
   status: {
-    type: DataTypes.ENUM("Premium", "Free"),
+    type: DataTypes.STRING(50), 
+    allowNull: false,
     defaultValue: "Free",
+    unique: true,
   },
 }, {
   tableName: "Subscription",

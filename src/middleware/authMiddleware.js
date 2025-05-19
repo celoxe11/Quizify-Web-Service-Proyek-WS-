@@ -1,59 +1,81 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const dotenv = require("dotenv");
+const axios = require('axios');
 
 dotenv.config();
 
-const authenticate = async (req, res, next) => {
-  const authHeader = req.header("Authorization");
 
-  if (!authHeader) {
-    return res.status(401).json({ message: "Access denied, no token provided" });
+const sendHttpCatImage = async (res, statusCode) => {
+  try {
+    const response = await axios.get(`https://http.cat/${statusCode}`, { responseType: 'arraybuffer' });
+    res.status(statusCode);
+    res.set('Content-Type', 'image/jpeg');
+    res.send(response.data);
+  } catch (error) {
+    // Kalau gagal ambil gambar http.cat, fallback ke JSON error biasa
+    res.status(statusCode).json({ message: `Error ${statusCode}` });
+  }
+};
+
+const authenticate = async (req, res, next) => {
+  const token = req.header("x-access-token");
+
+  if (!token) {
+    return sendHttpCatImage(res, 401);  // Ganti json dengan image http.cat 401
   }
 
-  // Extract token from "Bearer [token]" format
-  const token = authHeader.startsWith("Bearer ")
-    ? authHeader.slice(7)
-    : authHeader;
-
   try {
-    // Verify token and decode payload
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const userId = decoded.id;
+    const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
 
-    // Find the user from the database
+    if (decoded.role === "admin") {
+      if (
+        decoded.username === process.env.ADMIN_USERNAME &&
+        decoded.password === process.env.ADMIN_PASSWORD
+      ) {
+        req.user = {
+          id: "admin",
+          username: decoded.username,
+          role: "admin",
+        };
+        return next();
+      } else {
+        return sendHttpCatImage(res, 403);  // Ganti json dengan image http.cat 403
+      }
+    }
+
+    const userId = decoded.id;
     const user = await User.findByPk(userId);
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return sendHttpCatImage(res, 404);  // Ganti json dengan image http.cat 404
     }
 
-    // Attach user data to request object
     req.user = user;
     next();
   } catch (error) {
     console.error("Token verification error:", error.message);
-    res.status(400).json({ message: "Invalid token" });
+    return sendHttpCatImage(res, 400);  // Ganti json dengan image http.cat 400
   }
 };
 
 const isAdmin = (req, res, next) => {
   if (!req.user || req.user.role !== "admin") {
-    return res.status(403).json({ message: "Forbidden, admin access only" });
+    return sendHttpCatImage(res, 403);
   }
   next();
 };
 
 const isTeacher = (req, res, next) => {
   if (!req.user || req.user.role !== "teacher") {
-    return res.status(403).json({ message: "Forbidden, teacher access only" });
+    return sendHttpCatImage(res, 403);
   }
   next();
 };
 
 const isStudent = (req, res, next) => {
   if (!req.user || req.user.role !== "student") {
-    return res.status(403).json({ message: "Forbidden, student access only" });
+    return sendHttpCatImage(res, 403);
   }
   next();
 };
