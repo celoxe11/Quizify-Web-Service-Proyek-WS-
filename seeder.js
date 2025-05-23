@@ -224,9 +224,9 @@ async function seedDatabase() {
       [questions]
     );
 
-    console.log("✅ Database dan data dummy berhasil dibuat dengan Faker.");
+    console.log("Database dan data dummy berhasil dibuat dengan Faker.");
   } catch (err) {
-    console.error('❌ Gagal setup database:', err);
+    console.error('Gagal setup database:', err);
   } finally {
     await connection.end();
   }

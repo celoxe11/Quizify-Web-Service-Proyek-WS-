@@ -1,0 +1,1425 @@
+{
+	"info": {
+		"_postman_id": "e8879b7d-f70a-48f0-9073-52cae957b906",
+		"name": "Proyek_Quizify",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "42910509"
+	},
+	"item": [
+		{
+			"name": "Admin",
+			"item": [
+				{
+					"name": "[SUCCESS] Log Access",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "x-access-token",
+								"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImFkbWluIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzQ3NjM5NTg5LCJleHAiOjE3NDc3MjU5ODl9.EACDU_bdOknwRA8rGl5KUWQ6Siw-kHljFri6Gc1w5js",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "user_id",
+									"value": "ST002",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "http://localhost:3000/api/admin/logaccess",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"admin",
+								"logaccess"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "[FAIL] Log Access - header",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "x-access-token",
+								"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImFkbWluIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzQ3NjM5NTg5LCJleHAiOjE3NDc3MjU5ODl9.EACDU_bdOknwRA8rGl5KUWQ6Siw-kHljFri6Gc1w",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "user_id",
+									"value": "ST002",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "http://localhost:3000/api/admin/logaccess",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"admin",
+								"logaccess"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "[SUCCESS] Update Token",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "x-access-token",
+								"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImFkbWluIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzQ3NjM5NTg5LCJleHAiOjE3NDc3MjU5ODl9.EACDU_bdOknwRA8rGl5KUWQ6Siw-kHljFri6Gc1w5js",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "user_id",
+									"value": "ST002",
+									"type": "text"
+								},
+								{
+									"key": "subscription",
+									"value": "Premium",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "http://localhost:3000/api/admin/token",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"admin",
+								"token"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "[FAIL] Update Token - header",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "x-access-token",
+								"value": ".eyJpZCI6ImFkbWluIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzQ3NjM5NTg5LCJleHAiOjE3NDc3MjU5ODl9.EACDU_bdOknwRA8rGl5KUWQ6Siw-kHljFri6Gc1w5js",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "user_id",
+									"value": "ST003",
+									"type": "text"
+								},
+								{
+									"key": "subscription",
+									"value": "Premium",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "http://localhost:3000/api/admin/token",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"admin",
+								"token"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "[FAIL] Update Token - user_id",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "x-access-token",
+								"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImFkbWluIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzQ3NjM5NTg5LCJleHAiOjE3NDc3MjU5ODl9.EACDU_bdOknwRA8rGl5KUWQ6Siw-kHljFri6Gc1w5js",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "user_id",
+									"value": "ST999",
+									"type": "text"
+								},
+								{
+									"key": "subscription",
+									"value": "Premium",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "http://localhost:3000/api/admin/token",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"admin",
+								"token"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "[FAIL] Update Token - Subs salah",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "x-access-token",
+								"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImFkbWluIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzQ3NjM5NTg5LCJleHAiOjE3NDc3MjU5ODl9.EACDU_bdOknwRA8rGl5KUWQ6Siw-kHljFri6Gc1w5js",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "user_id",
+									"value": "ST003",
+									"type": "text"
+								},
+								{
+									"key": "subscription",
+									"value": "Trial",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "http://localhost:3000/api/admin/token",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"admin",
+								"token"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "[SUCCESS] User Subscription",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "x-access-token",
+								"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImFkbWluIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzQ3NjM5NTg5LCJleHAiOjE3NDc3MjU5ODl9.EACDU_bdOknwRA8rGl5KUWQ6Siw-kHljFri6Gc1w5js",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": []
+						},
+						"url": {
+							"raw": "http://localhost:3000/api/admin/users",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"admin",
+								"users"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "[FAIL] User Subscription - header",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "x-access-token",
+								"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImFkbWluIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzQ3NjM5NTg5LCJleHAiOjE3NDc3MjU5ODl9.EACDU_bdOknwRA8rGl5KUWQ6Siw-kHljFri6Gc1w",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": []
+						},
+						"url": {
+							"raw": "http://localhost:3000/api/admin/users",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"admin",
+								"users"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "[SUCCESS] Create Tier List",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-access-token",
+								"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImFkbWluIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzQ3NjM5NTg5LCJleHAiOjE3NDc3MjU5ODl9.EACDU_bdOknwRA8rGl5KUWQ6Siw-kHljFri6Gc1w5js",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "status",
+									"value": "Pay as you go",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "http://localhost:3000/api/admin/tierlist",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"admin",
+								"tierlist"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "[FAIL] Create Tier List - header",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-access-token",
+								"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImFkbWluIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzQ3NjM5NTg5LCJleHAiOjE3NDc3MjU5ODl9.EACDU_bdOknwRA8rGl5KUWQ6Siw-kHljFri6Gc1w5js",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "status",
+									"value": "Pay as you go",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "http://localhost:3000/api/admin/tierlist",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"admin",
+								"tierlist"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "[FAIL] Create Tier List - No Status",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-access-token",
+								"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImFkbWluIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzQ3NjM5NTg5LCJleHAiOjE3NDc3MjU5ODl9.EACDU_bdOknwRA8rGl5KUWQ6Siw-kHljFri6Gc1w5js",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "status",
+									"value": "",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "http://localhost:3000/api/admin/tierlist",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"admin",
+								"tierlist"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "[SUCCESS] Get Tier List",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "x-access-token",
+								"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImFkbWluIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzQ3NjM5NTg5LCJleHAiOjE3NDc3MjU5ODl9.EACDU_bdOknwRA8rGl5KUWQ6Siw-kHljFri6Gc1w5js",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:3000/api/admin/tierlist",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"admin",
+								"tierlist"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "[FAIL] Get Tier List - header",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "x-access-token",
+								"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImFkbWluIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzQ3NjM5NTg5LCJleHAiOjE3NDc3MjU5ODl9.EACDU_bdOknwRA8rGl5KUWQ6Siw-kHljFri6",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:3000/api/admin/tierlist",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"admin",
+								"tierlist"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Student",
+			"item": [
+				{
+					"name": "[SUCCESS] Do Quiz",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:3000/api/student/quiz",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"student",
+								"quiz"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "[SUCCESS] Generate Question",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "username",
+									"value": "jayce56",
+									"type": "text"
+								},
+								{
+									"key": "email",
+									"value": "vivienne92@gmail.com",
+									"type": "text"
+								},
+								{
+									"key": "password",
+									"value": "XbuMK5BJp7",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "http://localhost:3000/api/student/question/generate",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"student",
+								"question",
+								"generate"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Teacher",
+			"item": [
+				{
+					"name": "[SUCCESS] Create Quiz",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "username",
+									"value": "jayce56",
+									"type": "text"
+								},
+								{
+									"key": "email",
+									"value": "vivienne92@gmail.com",
+									"type": "text"
+								},
+								{
+									"key": "password",
+									"value": "XbuMK5BJp7",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "http://localhost:3000/api/teacher/quiz",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"teacher",
+								"quiz"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "[SUCCESS] Add Question",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-access-token",
+								"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImFkbWluIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzQ3NjM5NTg5LCJleHAiOjE3NDc3MjU5ODl9.EACDU_bdOknwRA8rGl5KUWQ6Siw-kHljFri6Gc1w5js",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "id",
+									"value": "Q001",
+									"type": "text"
+								},
+								{
+									"key": "quiz_id",
+									"value": "QUIZ001",
+									"type": "text"
+								},
+								{
+									"key": "category",
+									"value": "Science",
+									"type": "text"
+								},
+								{
+									"key": "type",
+									"value": "multiple",
+									"type": "text"
+								},
+								{
+									"key": "difficulty",
+									"value": "medium",
+									"type": "text"
+								},
+								{
+									"key": "question_text",
+									"value": "What is the chemical symbol for gold?",
+									"type": "text"
+								},
+								{
+									"key": "correct_answer",
+									"value": "Au",
+									"type": "text"
+								},
+								{
+									"key": "incorrect_answers",
+									"value": "[\"Ag\", \"Fe\", \"Gd\"]",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "http://localhost:3000/api/teacher/question",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"teacher",
+								"question"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "[SUCCESS] Update Question",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:3000/api/teacher/question",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"teacher",
+								"question"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "[SUCCESS]  Generate Question",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:3000/api/teacher/generatequestion",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"teacher",
+								"generatequestion"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "[SUCCESS] Delete Question",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:3000/api/teacher/question/:question_id",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"teacher",
+								"question",
+								":question_id"
+							],
+							"variable": [
+								{
+									"key": "question_id",
+									"value": ""
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "[SUCCESS]  All Quiz",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:3000/api/teacher/myquiz",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"teacher",
+								"myquiz"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "[SUCCESS] Start Quiz",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:3000/api/teacher/startquiz/:quiz_id ",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"teacher",
+								"startquiz",
+								":quiz_id "
+							],
+							"variable": [
+								{
+									"key": "quiz_id ",
+									"value": ""
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "[SUCCESS] Update Quiz Session",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:3000/api/teacher/quiz",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"teacher",
+								"quiz"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "[SUCCESS] Accuracy",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:3000/api/teacher/question/accuracy/:question_id",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "3000",
+							"path": [
+								"api",
+								"teacher",
+								"question",
+								"accuracy",
+								":question_id"
+							],
+							"variable": [
+								{
+									"key": "question_id",
+									"value": ""
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "[SUCCESS] Login - Admin",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "username",
+							"value": "admin",
+							"type": "text"
+						},
+						{
+							"key": "password",
+							"value": "admin",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://localhost:3000/api/login",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "[SUCCESS] Login - User",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "username",
+							"value": "jayce56",
+							"type": "text"
+						},
+						{
+							"key": "email",
+							"value": "vivienne92@gmail.com",
+							"type": "text"
+						},
+						{
+							"key": "password",
+							"value": "XbuMK5BJp7",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://localhost:3000/api/login",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "[SUCCESS] Login - no Username",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "username",
+							"value": "",
+							"type": "text"
+						},
+						{
+							"key": "email",
+							"value": "vivienne92@gmail.com",
+							"type": "text"
+						},
+						{
+							"key": "password",
+							"value": "XbuMK5BJp7",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://localhost:3000/api/login",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "[SUCCESS] Login - no Email",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "username",
+							"value": "jayce56",
+							"type": "text"
+						},
+						{
+							"key": "email",
+							"value": "",
+							"type": "text"
+						},
+						{
+							"key": "password",
+							"value": "XbuMK5BJp7",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://localhost:3000/api/login",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "[FAIL] Login - no Pass",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "username",
+							"value": "admin",
+							"type": "text"
+						},
+						{
+							"key": "email",
+							"value": "",
+							"type": "text"
+						},
+						{
+							"key": "password",
+							"value": "",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://localhost:3000/api/login",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "[FAIL] Login - no User and Email",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "username",
+							"value": "",
+							"type": "text"
+						},
+						{
+							"key": "email",
+							"value": "",
+							"type": "text"
+						},
+						{
+							"key": "password",
+							"value": "admin",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://localhost:3000/api/login",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "[SUCCESS] Register",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "x-auth-token",
+						"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZF91c2VyIjoiVVMwMDEiLCJ1c2VybmFtZSI6ImFkbWluIiwiaWF0IjoxNzQ2NTk1MTE1LCJleHAiOjE3NDY2MDIzMTV9.wdGVCUkvOHCX-iGPDPVPjTG1nl-svonzYE9OyOs1_kY",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "name",
+							"value": "Ophelia Calysta F.",
+							"type": "text"
+						},
+						{
+							"key": "username",
+							"value": "Calysta",
+							"type": "text"
+						},
+						{
+							"key": "email",
+							"value": "ophelia.c23@mhs.istts.ac.id",
+							"type": "text"
+						},
+						{
+							"key": "password",
+							"value": "12345678",
+							"type": "text"
+						},
+						{
+							"key": "role",
+							"value": "student",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://localhost:3000/api/register",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"register"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "[FAIL] Register - no pass",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "x-auth-token",
+						"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZF91c2VyIjoiVVMwMDEiLCJ1c2VybmFtZSI6ImFkbWluIiwiaWF0IjoxNzQ2NTk1MTE1LCJleHAiOjE3NDY2MDIzMTV9.wdGVCUkvOHCX-iGPDPVPjTG1nl-svonzYE9OyOs1_kY",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "name",
+							"value": "Ophelia Calysta F.",
+							"type": "text"
+						},
+						{
+							"key": "username",
+							"value": "Calysta",
+							"type": "text"
+						},
+						{
+							"key": "email",
+							"value": "ophelia.c23@mhs.istts.ac.id",
+							"type": "text"
+						},
+						{
+							"key": "password",
+							"value": "",
+							"type": "text"
+						},
+						{
+							"key": "role",
+							"value": "student",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://localhost:3000/api/register",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"register"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "[FAIL] Register - pass kurang",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "x-auth-token",
+						"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZF91c2VyIjoiVVMwMDEiLCJ1c2VybmFtZSI6ImFkbWluIiwiaWF0IjoxNzQ2NTk1MTE1LCJleHAiOjE3NDY2MDIzMTV9.wdGVCUkvOHCX-iGPDPVPjTG1nl-svonzYE9OyOs1_kY",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "name",
+							"value": "Ophelia Calysta F.",
+							"type": "text"
+						},
+						{
+							"key": "username",
+							"value": "Calysta",
+							"type": "text"
+						},
+						{
+							"key": "email",
+							"value": "ophelia.c23@mhs.istts.ac.id",
+							"type": "text"
+						},
+						{
+							"key": "password",
+							"value": "123456",
+							"type": "text"
+						},
+						{
+							"key": "role",
+							"value": "student",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://localhost:3000/api/register",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"register"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "[FAIL] Register - role salah",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "x-auth-token",
+						"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZF91c2VyIjoiVVMwMDEiLCJ1c2VybmFtZSI6ImFkbWluIiwiaWF0IjoxNzQ2NTk1MTE1LCJleHAiOjE3NDY2MDIzMTV9.wdGVCUkvOHCX-iGPDPVPjTG1nl-svonzYE9OyOs1_kY",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "name",
+							"value": "Ophelia Calysta F.",
+							"type": "text"
+						},
+						{
+							"key": "username",
+							"value": "Calysta",
+							"type": "text"
+						},
+						{
+							"key": "email",
+							"value": "ophelia.c23@mhs.istts.ac.id",
+							"type": "text"
+						},
+						{
+							"key": "password",
+							"value": "12345678",
+							"type": "text"
+						},
+						{
+							"key": "role",
+							"value": "admin",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://localhost:3000/api/register",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"register"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "[FAIL] Register - duplicate username",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "x-auth-token",
+						"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZF91c2VyIjoiVVMwMDEiLCJ1c2VybmFtZSI6ImFkbWluIiwiaWF0IjoxNzQ2NTk1MTE1LCJleHAiOjE3NDY2MDIzMTV9.wdGVCUkvOHCX-iGPDPVPjTG1nl-svonzYE9OyOs1_kY",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "name",
+							"value": "Ophelia Calysta F.",
+							"type": "text"
+						},
+						{
+							"key": "username",
+							"value": "Calysta",
+							"type": "text"
+						},
+						{
+							"key": "email",
+							"value": "ophelia.C25@mhs.istts.ac.id",
+							"type": "text"
+						},
+						{
+							"key": "password",
+							"value": "12345678",
+							"type": "text"
+						},
+						{
+							"key": "role",
+							"value": "student",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://localhost:3000/api/register",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"register"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "[FAIL] Register - duplicate email",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "x-auth-token",
+						"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZF91c2VyIjoiVVMwMDEiLCJ1c2VybmFtZSI6ImFkbWluIiwiaWF0IjoxNzQ2NTk1MTE1LCJleHAiOjE3NDY2MDIzMTV9.wdGVCUkvOHCX-iGPDPVPjTG1nl-svonzYE9OyOs1_kY",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "urlencoded",
+					"urlencoded": [
+						{
+							"key": "name",
+							"value": "Ophelia Calysta F.",
+							"type": "text"
+						},
+						{
+							"key": "username",
+							"value": "Ophelia",
+							"type": "text"
+						},
+						{
+							"key": "email",
+							"value": "ophelia.c23@mhs.istts.ac.id",
+							"type": "text"
+						},
+						{
+							"key": "password",
+							"value": "12345678",
+							"type": "text"
+						},
+						{
+							"key": "role",
+							"value": "student",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://localhost:3000/api/register",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "3000",
+					"path": [
+						"api",
+						"register"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

@@ -32,7 +32,7 @@ const getLog = async (req, res) => {
 };
 
 // Update subscription user
-const addToken = async (req, res) => {
+const userSubscription = async (req, res) => {
   const schema = Joi.object({
     user_id: Joi.string().required().messages({
         "any.required": "user_id wajib diisi",
@@ -43,7 +43,6 @@ const addToken = async (req, res) => {
         "string.empty": "Subscription tidak boleh kosong",
     }),
   });
-
 
   const { error, value } = schema.validate(req.body);
   if (error) return res.status(400).json({ message: error.message });
@@ -100,6 +99,7 @@ const getSubsList = async (req, res) => {
   }
 };
 
+// Buat tier subscription baru
 const createTierList = async (req, res) => {
   const schema = Joi.object({
     status: Joi.string().trim().min(1).required().messages({
@@ -155,7 +155,7 @@ const getTierList = async (req, res) => {
 
 module.exports = {
   getLog,
-  addToken,
+  userSubscription,
   getSubsList,
   createTierList,
   getTierList,

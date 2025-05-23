@@ -1,20 +1,51 @@
-const express = require('express');
+const express = require("express");
 
-const { 
-    getLog,
-    getSubsList,
-    createTierList,
-    getTierList,
-    addToken
- } = require('../controllers/adminController');
+const {
+  getLog,
+  getSubsList,
+  createTierList,
+  getTierList,
+  userSubscription,
+} = require("../controllers/adminController");
 
- const { authenticate, isAdmin } = require('../middleware/authMiddleware');
+const logActivity = require("../middleware/logActivity");
+const { authenticate, isAdmin } = require("../middleware/authMiddleware");
 
 const router = express.Router();
-router.get('/logaccess', authenticate, isAdmin, getLog); 
-router.put('/token', authenticate, isAdmin, addToken);
-router.get('/users',authenticate, isAdmin, getSubsList);
-router.post('/tierlist',authenticate, isAdmin, createTierList);
-router.get('/tierlist',authenticate, isAdmin, getTierList);
+router.get(
+  "/logaccess",
+  authenticate,
+  logActivity("Admin View Log Access"),
+  isAdmin,
+  getLog
+);
+router.put(
+  "/token",
+  authenticate,
+  logActivity("Admin: View Log Access"),
+  isAdmin,
+  userSubscription
+);
+router.get(
+  "/users",
+  authenticate,
+  logActivity("Admin: View Users"),
+  isAdmin,
+  getSubsList
+);
+router.post(
+  "/tierlist",
+  authenticate,
+  logActivity("Admin: Create Tier List"),
+  isAdmin,
+  createTierList
+);
+router.get(
+  "/tierlist",
+  authenticate,
+  logActivity("Admin: View Tier List"),
+  isAdmin,
+  getTierList
+);
 
 module.exports = router;

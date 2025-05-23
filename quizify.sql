@@ -51,7 +51,7 @@ CREATE TABLE Question (
     id VARCHAR(10) PRIMARY KEY,
     quiz_id VARCHAR(10),
     category VARCHAR(100),
-    TYPE ENUM('multiple', 'boolean') NOT NULL,
+    `type` ENUM('multiple', 'boolean') NOT NULL,
     difficulty ENUM('easy', 'medium', 'hard') NOT NULL,
     question_text TEXT NOT NULL,
     correct_answer TEXT NOT NULL,
@@ -59,6 +59,7 @@ CREATE TABLE Question (
     is_generated BOOLEAN DEFAULT FALSE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    last_subscribe DATETIME,
     FOREIGN KEY (quiz_id) REFERENCES Quiz(id) ON DELETE SET NULL
 );
 
@@ -77,7 +78,7 @@ CREATE TABLE UserLog (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id VARCHAR(10) NOT NULL,
     action_type VARCHAR(255) NOT NULL,
-    ENDPOINT VARCHAR(255), 
+    `endpoint` VARCHAR(255), 
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES USER(id) ON DELETE CASCADE
 );
@@ -136,23 +137,23 @@ VALUES
 -- QUIZZES
 INSERT INTO Quiz (id, title, description, category, created_by)
 VALUES
-('SC001', 'Science Quiz', 'Test your science knowledge!', 'Science', 'TE001'),
-('HI002', 'History Basics', 'A quiz on world history.', 'History', 'TE001'),
-('MI003', 'Mixed Knowledge', 'Combination of topics.', NULL, 'TE001');
+('QU001', 'Science Quiz', 'Test your science knowledge!', 'Science', 'TE001'),
+('QU002', 'History Basics', 'A quiz on world history.', 'History', 'TE001'),
+('QU003', 'Mixed Knowledge', 'Combination of topics.', NULL, 'TE001');
 
 -- QUESTIONS
 INSERT INTO Question (id, quiz_id, category, TYPE, difficulty, question_text, correct_answer, incorrect_answers, is_generated)
 VALUES
-('Q001', 'SC001', 'Science: Computers', 'multiple', 'easy', 'What does CPU stand for?', 'Central Processing Unit', '["Computer Personal Unit", "Central Processor Unit", "Computer Processing Unit"]', TRUE),
-('Q002', 'SC001', 'Science: Computers', 'boolean', 'medium', 'The GPU is primarily used for rendering graphics.', 'True', '["False"]', TRUE),
-('Q003', 'HI002', 'History', 'multiple', 'hard', 'Who was the first emperor of Rome?', 'Augustus', '["Julius Caesar", "Nero", "Caligula"]', FALSE);
+('Q001', 'QU001', 'Science: Computers', 'multiple', 'easy', 'What does CPU stand for?', 'Central Processing Unit', '["Computer Personal Unit", "Central Processor Unit", "Computer Processing Unit"]', TRUE),
+('Q002', 'QU001', 'Science: Computers', 'boolean', 'medium', 'The GPU is primarily used for rendering graphics.', 'True', '["False"]', TRUE),
+('Q003', 'QU002', 'History', 'multiple', 'hard', 'Who was the first emperor of Rome?', 'Augustus', '["Julius Caesar", "Nero", "Caligula"]', FALSE);
 
 -- QUIZ SESSIONS
 INSERT INTO QuizSession (id, quiz_id, user_id, started_at, ended_at, score, STATUS)
 VALUES
-('S001', 'SC001', 'ST002', NOW(), NOW(), 80, 'completed'),
-('S002', 'HI002', 'ST002', NOW(), NOW(), 60, 'completed'),
-('S003', 'MI003', 'ST002', NOW(), NULL, NULL, 'in_progress');
+('S001', 'QU001', 'ST002', NOW(), NOW(), 80, 'completed'),
+('S002', 'QU002', 'ST002', NOW(), NOW(), 60, 'completed'),
+('S003', 'QU003', 'ST002', NOW(), NULL, NULL, 'in_progress');
 
 -- SUBMISSION ANSWERS
 INSERT INTO SubmissionAnswer (id, quiz_session_id, question_id, selected_answer, is_correct)
@@ -164,6 +165,6 @@ VALUES
 -- QUESTION ACCURACY
 INSERT INTO QuestionAccuracy (id, question_id, quiz_id, total_answered, correct_answers, incorrect_answers)
 VALUES
-('QA001', 'Q001', 'SC001', 5, 4, 1),
-('QA002', 'Q002', 'SC001', 5, 5, 0),
-('QA003', 'Q003', 'HI002', 5, 2, 3);
+('QA001', 'Q001', 'QU001', 5, 4, 1),
+('QA002', 'Q002', 'QU001', 5, 5, 0),
+('QA003', 'Q003', 'QU002', 5, 2, 3);

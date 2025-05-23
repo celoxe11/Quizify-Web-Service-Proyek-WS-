@@ -12,7 +12,7 @@ const Question = sequelize.define("Question", {
   category: {
     type: DataTypes.STRING(100),
   },
-  TYPE: {
+  type: {
     type: DataTypes.ENUM("multiple", "boolean"),
     allowNull: false,
   },
