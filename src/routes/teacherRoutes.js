@@ -17,7 +17,7 @@ const {
   subscribe,
   unsubscribe,
 } = require("../controllers/teacherController");
-
+const upload = require("../middleware/uploadFile");
 const { authenticate, isTeacher } = require("../middleware/authMiddleware");
 const {
   isPremium,
@@ -47,6 +47,7 @@ router.post(
   authenticate,
   isTeacher,
   uploadImageLimit,
+  upload.single('gambar-soal'),
   logActivity("Teacher: Create Question"),
   createQuestion
 );
@@ -54,6 +55,8 @@ router.put(
   "/question",
   authenticate,
   isTeacher,
+  uploadImageLimit,
+  upload.single('gambar-soal'),
   logActivity("Teacher: Update Question"),
   updateQuestion
 );
@@ -61,6 +64,7 @@ router.post(
   "/generatequestion",
   authenticate,
   isTeacher,
+  isPremium,
   logActivity("Teacher: Generate Question"),
   generateQuestion
 );
