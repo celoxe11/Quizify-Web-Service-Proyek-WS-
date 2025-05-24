@@ -75,7 +75,7 @@ const uploadImageLimit = async (req, res, next) => {
       const questionImage = await QuestionImage.findAll({
         where: {
           user_id: user_id,
-          created_at: {
+          uploaded_at: {
             [Op.gte]: startOfDay,
             [Op.lt]: endOfDay,
           },

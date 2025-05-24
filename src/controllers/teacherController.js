@@ -1,6 +1,6 @@
 const axios = require("axios");
 const schema = require("../utils/validation/");
-const { Quiz, Question, QuestionImage } = require("../models");
+const { User, Quiz, Question, QuestionImage, QuizSession, SubmissionAnswer } = require("../models");
 
 const opentdb = require("../services/opentdb"); // ini file untuk nembak ke open trivia api
 
@@ -89,11 +89,13 @@ const createQuestion = async (req, res) => {
       incorrect_answers,
     } = req.body;
 
-    if (incorrect_answers && typeof incorrect_answers === 'string') {
+    if (incorrect_answers && typeof incorrect_answers === "string") {
       try {
         incorrect_answers = JSON.parse(incorrect_answers);
       } catch (e) {
-        incorrect_answers = incorrect_answers.split(',').map(item => item.trim());
+        incorrect_answers = incorrect_answers
+          .split(",")
+          .map((item) => item.trim());
       }
     }
 
@@ -103,10 +105,13 @@ const createQuestion = async (req, res) => {
       });
     }
 
-    await schema.questionSchema.validateAsync({
-      ...req.body,
-      incorrect_answers,
-    }, { abortEarly: false });
+    await schema.questionSchema.validateAsync(
+      {
+        ...req.body,
+        incorrect_answers,
+      },
+      { abortEarly: false }
+    );
 
     const allQuestion = await Question.findAll();
     let id = "Q" + (allQuestion.length + 1).toString().padStart(3, "0");
@@ -132,12 +137,28 @@ const createQuestion = async (req, res) => {
         user_id: req.user.id,
         question_id: question.id,
         image_url: imagePath,
+        uploaded_at: new Date(),
       });
     }
 
+    // buat format data yang dikembalikan
+    const formattedQuestion = {
+      id: question.id,
+      quiz_id: question.quiz_id,
+      category: question.category,
+      type: question.type,
+      difficulty: question.difficulty,
+      question_text: question.question_text,
+      correct_answer: question.correct_answer,
+      incorrect_answers: question.incorrect_answers,
+      image_url: imagePath
+        ? `${req.protocol}://${req.get("host")}${imagePath}`
+        : null,
+    };
+
     res.status(201).json({
       message: "Berhasil membuat pertanyaan",
-      question,
+      question: formattedQuestion,
     });
   } catch (error) {
     if (error.isJoi) {
@@ -294,7 +315,7 @@ const generateQuestion = async (req, res) => {
         difficulty: newQuestion.difficulty,
         question_text: newQuestion.question_text,
         correct_answer: newQuestion.correct_answer,
-        incorrect_answers: newQuestion.incorrect_answers
+        incorrect_answers: newQuestion.incorrect_answers,
       };
 
       savedQuestions.push(formattedQuestion);
@@ -312,6 +333,32 @@ const generateQuestion = async (req, res) => {
 
 const deleteQuestion = async (req, res) => {
   try {
+    const question_id = req.params.question_id;
+    if (!question_id) {
+      return res.status(400).json({
+        message: "Question ID tidak boleh kosong",
+      });
+    }
+
+    // cari apakah question_id ada di database
+    const question = await Question.findOne({
+      where: {
+        id: question_id,
+      },
+    });
+
+    if (!question) {
+      return res.status(404).json({
+        message: "Question ID tidak ditemukan",
+      });
+    }
+
+    // hapus question
+    await Question.destroy({
+      where: {
+        id: question_id,
+      },
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -319,6 +366,52 @@ const deleteQuestion = async (req, res) => {
 
 const getUsersQuiz = async (req, res) => {
   try {
+    const user_id = req.user.id;
+
+    // cari semua quiz yang dibuat oleh user beserta tampilkan berapa pertanyaan yang ada di dalamnya dan kapan dibuat
+    const quizzes = await Quiz.findAll({
+      where: {
+        created_by: user_id,
+      },
+      include: [
+        {
+          model: Question,
+          attributes: ["id"],
+        },
+      ],
+      attributes: {
+        include: [
+          [
+            sequelize.fn("COUNT", sequelize.col("questions.id")),
+            "question_count",
+          ],
+          "created_at",
+        ],
+      },
+      group: ["Quiz.id"],
+    });
+
+    if (quizzes.length === 0) {
+      return res.status(404).json({
+        message: "Tidak ada kuis yang ditemukan",
+      });
+    }
+
+    // format data yang dikembalikan
+    quizzes = quizzes.map((quiz) => {
+      return {
+        id: quiz.id,
+        title: quiz.title,
+        description: quiz.description,
+        question_count: quiz.dataValues.question_count,
+        created_at: quiz.created_at,
+      };
+    });
+
+    res.status(200).json({
+      message: "Berhasil mendapatkan kuis",
+      quizzes,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -326,6 +419,60 @@ const getUsersQuiz = async (req, res) => {
 
 const getQuizDetail = async (req, res) => {
   try {
+    const quiz_id = req.params.quiz_id;
+    if (!quiz_id) {
+      return res.status(400).json({
+        message: "Quiz ID tidak boleh kosong",
+      });
+    }
+    // cari apakah quiz_id ada di database
+    const quiz = await Quiz.findOne({
+      where: {
+        id: quiz_id,
+      },
+      include: [
+        {
+          model: Question,
+          attributes: ["id", "question_text", "correct_answer", "incorrect_answers"],
+          include: [
+            {
+              model: QuestionImage,
+              attributes: ["image_url"],
+            },
+          ],
+        },
+      ],
+    });
+
+    if (!quiz) {
+      return res.status(404).json({
+        message: "Quiz ID tidak ditemukan",
+      });
+    }
+
+    // format data yang dikembalikan
+    const formattedQuiz = {
+      id: quiz.id,
+      title: quiz.title,
+      description: quiz.description,
+      created_at: quiz.created_at,
+      questions: quiz.questions.map((question) => {
+        return {
+          id: question.id,
+          question_text: question.question_text,
+          correct_answer: question.correct_answer,
+          incorrect_answers: question.incorrect_answers,
+          image_url: question.QuestionImage
+            ? `${req.protocol}://${req.get("host")}${question.QuestionImage.image_url}`
+            : null,
+        };
+      }),
+    };
+
+    res.status(200).json({
+      message: "Berhasil mendapatkan detail kuis",
+      quiz: formattedQuiz,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -333,6 +480,58 @@ const getQuizDetail = async (req, res) => {
 
 const startQuiz = async (req, res) => {
   try {
+    const quiz_id = req.params.quiz_id;
+    if (!quiz_id) {
+      return res.status(400).json({
+        message: "Quiz ID tidak boleh kosong",
+      });
+    }
+
+    // cari apakah quiz_id ada di database
+    const quiz = await Quiz.findOne({
+      where: {
+        id: quiz_id,
+      },
+    });
+
+    if (!quiz) {
+      return res.status(404).json({
+        message: "Quiz ID tidak ditemukan",
+      });
+    }
+
+    // cek apakah quiz sudah dimulai dari quizSession, lihat apakah started_at null
+    const quizSession = await QuizSession.findOne({
+      where: {
+        quiz_id,
+        started_at: null,
+      },
+    });
+    
+    if (!quizSession) {
+      return res.status(400).json({
+        message: "Quiz sudah dimulai",
+      });
+    }
+
+    // buat quiz session baru
+    const quizSessionId = "S" + (quizSession.length + 1).toString().padStart(3, "0");
+    const quizSessionCreated = await QuizSession.create({
+      id: quizSessionId,
+      quiz_id,
+      started_at: new Date(),
+    });
+
+    if (!quizSessionCreated) {
+      return res.status(500).json({
+        message: "Gagal memulai kuis",
+      });
+    }
+    res.status(200).json({
+      message: `Berhasil memulai kuis ${quiz.title}`,
+      quiz_session_id: quizSessionCreated.id,
+    });
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -340,6 +539,76 @@ const startQuiz = async (req, res) => {
 
 const endQuiz = async (req, res) => {
   try {
+    const quiz_id = req.params.quiz_id;
+    if (!quiz_id) {
+      return res.status(400).json({
+        message: "Quiz ID tidak boleh kosong",
+      });
+    }
+
+    // cari apakah quiz_id ada di database
+    const quiz = await Quiz.findOne({
+      where: {
+        id: quiz_id,
+      },
+    });
+
+    if (!quiz) {
+      return res.status(404).json({
+        message: "Quiz ID tidak ditemukan",
+      });
+    }
+
+    // cek apakah quiz sudah dimulai dari quizSession, lihat apakah started_at null
+    const quizSession = await QuizSession.findOne({
+      where: {
+        quiz_id,
+        started_at: {
+          [Op.ne]: null,
+        },
+      },
+    });
+
+    if (!quizSession) {
+      return res.status(400).json({
+        message: "Quiz belum dimulai",
+      });
+    }
+
+    // hitung score rata-rata dari semua peserta yang mengikuti kuis, lihat dari submission_answer
+    const totalScore = await SubmissionAnswer.sum("score", {
+      where: {
+        quiz_session_id: quizSession.id,
+      },
+    });
+    const totalParticipants = await SubmissionAnswer.count({
+      where: {
+        quiz_session_id: quizSession.id,
+      },
+    });
+    const averageScore = totalParticipants > 0 ? totalScore / totalParticipants : 0;
+    const score = Math.round(averageScore);
+
+    // update quiz session
+    await QuizSession.update(
+      {
+        ended_at: new Date(),
+        status: "completed",
+        score: score,
+      },
+      {
+        where: {
+          id: quizSession.id,
+        },
+      }
+    );
+
+    res.status(200).json({
+      message: `Berhasil mengakhiri kuis ${quiz.title}`,
+      quiz_session_id: quizSession.id,
+      rata_score: score,
+    });
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -347,6 +616,72 @@ const endQuiz = async (req, res) => {
 
 const getQuizResult = async (req, res) => {
   try {
+    // lihat semua score siswa yang mengikuti kuis
+    const quiz_id = req.params.quiz_id;
+    if (!quiz_id) {
+      return res.status(400).json({
+        message: "Quiz ID tidak boleh kosong",
+      });
+    }
+    // cari apakah quiz_id ada di database
+    const quiz = await Quiz.findOne({
+      where: {
+        id: quiz_id,
+      },
+    });
+
+    if (!quiz) {
+      return res.status(404).json({
+        message: "Quiz ID tidak ditemukan",
+      });
+    }
+
+    // cari semua quiz session yang ada
+    const quizSessions = await QuizSession.findAll({
+      where: {
+        quiz_id,
+        ended_at: {
+          [Op.ne]: null,
+        },
+      },
+      include: [
+        {
+          model: SubmissionAnswer,
+          attributes: ["user_id", "score"],
+          include: [
+            {
+              model: User,
+              attributes: ["username"],
+            },
+          ],
+        },
+      ],
+    });
+
+    if (quizSessions.length === 0) {
+      return res.status(404).json({
+        message: "Tidak ada hasil kuis yang ditemukan",
+      });
+    }
+
+    // format data yang dikembalikan
+    const formattedResults = quizSessions.map((session) => {
+      return {
+        rata_score: session.score,
+        hasil_siswa: session.SubmissionAnswers.map((answer) => {
+          return {
+            username: answer.User.username,
+            score: answer.score,
+          };
+        }),
+      };
+    });
+
+    res.status(200).json({
+      message: "Berhasil mendapatkan hasil kuis",
+      quiz_id,
+      quiz_sessions: formattedResults,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

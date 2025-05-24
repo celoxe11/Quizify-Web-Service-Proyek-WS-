@@ -26,6 +26,7 @@ const QuestionImage = sequelize.define("QuestionImage", {
 }, {
   tableName: "QuestionImage",
   timestamps: false,
+  paranoid: false,
 });
 
 module.exports = QuestionImage;

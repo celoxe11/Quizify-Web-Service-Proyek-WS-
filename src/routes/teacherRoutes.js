@@ -47,7 +47,7 @@ router.post(
   authenticate,
   isTeacher,
   uploadImageLimit,
-  upload.single('gambar-soal'),
+  upload.single('gambar_soal'),
   logActivity("Teacher: Create Question"),
   createQuestion
 );
@@ -56,7 +56,7 @@ router.put(
   authenticate,
   isTeacher,
   uploadImageLimit,
-  upload.single('gambar-soal'),
+  upload.single('gambar_soal'),
   logActivity("Teacher: Update Question"),
   updateQuestion
 );
@@ -69,7 +69,7 @@ router.post(
   generateQuestion
 );
 router.delete(
-  "/question/:quiz_id",
+  "/question/:question_id",
   authenticate,
   isTeacher,
   logActivity("Teacher: Delete Question"),
