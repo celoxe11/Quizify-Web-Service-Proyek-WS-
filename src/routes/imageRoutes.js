@@ -1,17 +1,18 @@
 const express = require("express");
 const router = express.Router();
+const path = require("path");
+const fs = require("fs");
 
-router.get("/:folder/:filename", (req, res) => {
-  const { folder, filename } = req.params;
-  const filePath = `./uploads/${folder}/${filename}`;
+router.get("/:userId/:filename", (req, res) => {
+  const { userId, filename } = req.params;
+  const filePath = path.join(__dirname, "..", "uploads", userId, filename);
 
-  // just display the image on the postman
-  res.sendFile(filePath, { root: __dirname }, (err) => {
-    if (err) {
-      console.error("Error sending file:", err);
-      res.status(404).json({ message: "File not found" });
-    }
-  });
+  // Check if file exists
+  if (fs.existsSync(filePath)) {
+    res.sendFile(filePath);
+  } else {
+    res.status(404).json({ message: "Gambar Soal tidak ditemukan" });
+  }
 });
 
 module.exports = router;

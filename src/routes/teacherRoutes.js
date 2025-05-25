@@ -9,15 +9,12 @@ const {
   deleteQuestion,
   getUsersQuiz,
   getQuizDetail,
-  startQuiz,
-  endQuiz,
   getQuizResult,
   getStudentsAnswers,
   getQuizAccuracy,
   subscribe,
   unsubscribe,
 } = require("../controllers/teacherController");
-const upload = require("../middleware/uploadFile");
 const { authenticate, isTeacher } = require("../middleware/authMiddleware");
 const {
   isPremium,
@@ -25,6 +22,7 @@ const {
   uploadImageLimit,
 } = require("../middleware/teacherMiddleware");
 const logActivity = require("../middleware/logActivity");
+const upload = require("../middleware/uploadFile");
 
 const router = express.Router();
 router.post(
@@ -47,7 +45,7 @@ router.post(
   authenticate,
   isTeacher,
   uploadImageLimit,
-  upload.single('gambar_soal'),
+  upload('gambar_soal'),
   logActivity("Teacher: Create Question"),
   createQuestion
 );
@@ -56,7 +54,7 @@ router.put(
   authenticate,
   isTeacher,
   uploadImageLimit,
-  upload.single('gambar_soal'),
+  upload('gambar_soal'),
   logActivity("Teacher: Update Question"),
   updateQuestion
 );
@@ -88,20 +86,6 @@ router.get(
   isTeacher,
   logActivity("Teacher: Get Quiz Details"),
   getQuizDetail
-);
-router.post(
-  "/startquiz/:quiz_id",
-  authenticate,
-  isTeacher,
-  logActivity("Teacher: Start Quiz Session"),
-  startQuiz
-);
-router.post(
-  "/endquiz/:quiz_id",
-  authenticate,
-  isTeacher,
-  logActivity("Teacher: Start Quiz Session"),
-  endQuiz
 );
 router.get(
   "/quiz/results/:quiz_id",

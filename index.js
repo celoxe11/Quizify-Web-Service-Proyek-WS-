@@ -15,7 +15,7 @@ app.use("/api", authRoutes);
 app.use("/api/student", studentRoutes);
 app.use("/api/teacher", teacherRoutes);
 app.use("/api/admin", adminRoutes);
-app.use("/uploads", imageRoutes);
+app.use("/api/uploads", imageRoutes);
 
 sequelize
   .sync()

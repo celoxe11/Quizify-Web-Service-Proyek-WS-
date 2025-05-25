@@ -1,31 +1,42 @@
 const Joi = require("joi");
 const { Quiz } = require("../../models");
 
-// custom function to check if quiz_id exists in the database
-const quizIdExist = async (value) => {
-  const quizFound = await Quiz.findOne({ id: value.quiz_id });
-  if (!quizFound) {
-    throw new Error("Quiz ID tidak ditemukan");
-  }
-  return value;
-};
-
 const questionIdExist = async (value) => {
   const questionFound = await Quiz.findOne({ id: value.question_id });
   if (!questionFound) {
-    throw new Error("Question ID tidak ditemukan"); 
+    throw new Error("Question ID tidak ditemukan");
   }
   return value;
 };
 
+// Custom validation function to ensure incorrect_answers is an array
+const ensureArrayFormat = (value, helpers) => {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  // If it's a string, try to parse it as JSON
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+      // If it's a comma-separated string, split it
+      return value.split(",").map((item) => item.trim());
+    } catch (e) {
+      // If JSON parsing fails, try splitting by comma
+      return value.split(",").map((item) => item.trim());
+    }
+  }
+
+  return helpers.error("array.base");
+};
+
 const updateQuestionSchema = Joi.object({
-  quiestion_id: Joi.string().required().external(questionIdExist).messages({
+  question_id: Joi.string().required().external(questionIdExist).messages({
     "any.required": "Question ID harus diisi",
     "string.empty": "Question ID tidak boleh kosong",
-  }),
-  quiz_id: Joi.string().required().external(quizIdExist).messages({
-    "any.required": "Quiz ID harus diisi",
-    "string.empty": "Quiz ID tidak boleh kosong",
   }),
   category: Joi.string().required().messages({
     "any.required": "Category harus diisi",
@@ -49,16 +60,12 @@ const updateQuestionSchema = Joi.object({
     "any.required": "Correct answer harus diisi",
     "string.empty": "Correct answer tidak boleh kosong",
   }),
-  incorrect_answers: Joi.array()
-    .items(Joi.string())
-    .min(1)
-    .required()
-    .messages({
-      "any.required": "Incorrect answers harus diisi",
-      "array.base": "Incorrect answers harus berupa array jawaban salah",
-      "array.min": "Incorrect answers harus memiliki minimal 1 jawaban salah",
-      "array.empty": "Incorrect answers tidak boleh kosong",
-    }),
+  incorrect_answers: Joi.any().custom(ensureArrayFormat).messages({
+    "any.required": "Incorrect answers harus diisi",
+    "array.base": "Incorrect answers harus berupa array jawaban salah",
+    "array.min": "Incorrect answers harus memiliki minimal 1 jawaban salah",
+    "array.empty": "Incorrect answers tidak boleh kosong",
+  }),
 });
 
 module.exports = updateQuestionSchema;
