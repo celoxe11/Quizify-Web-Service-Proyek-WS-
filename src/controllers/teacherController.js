@@ -1,15 +1,26 @@
 const fs = require("fs");
 const schema = require("../utils/validation/");
 const teacherSchema = require("../utils/validation/teacherSchema");
-const { Quiz, Question, QuestionImage, QuizSession, User } = require("../models");
-const { parseIncorrectAnswers, checkQuizOwnership, formatImageUrl } = require("../utils/helpers");
+const {
+  Quiz,
+  Question,
+  QuestionImage,
+  QuizSession,
+  User,
+} = require("../models");
+const {
+  parseIncorrectAnswers,
+  checkQuizOwnership,
+  formatImageUrl,
+} = require("../utils/helpers");
 
 const opentdb = require("../services/opentdb");
 
 const createQuiz = async (req, res) => {
   try {
     const { error, value } = teacherSchema.quizCreateSchema.validate(req.body);
-    if (error) return res.status(400).json({ message: error.details[0].message });
+    if (error)
+      return res.status(400).json({ message: error.details[0].message });
 
     const { title, description } = value;
     const desc = description || "";
@@ -37,7 +48,8 @@ const createQuiz = async (req, res) => {
 const updateQuiz = async (req, res) => {
   try {
     const { error, value } = teacherSchema.quizUpdateSchema.validate(req.body);
-    if (error) return res.status(400).json({ message: error.details[0].message });
+    if (error)
+      return res.status(400).json({ message: error.details[0].message });
 
     const { quiz_id, title, description } = value;
     const desc = description || "";
@@ -63,24 +75,38 @@ const updateQuiz = async (req, res) => {
 const createQuestion = async (req, res) => {
   try {
     // Parse incorrect_answers if it's a string
-    req.body.incorrect_answers = parseIncorrectAnswers(req.body.incorrect_answers);
+    req.body.incorrect_answers = parseIncorrectAnswers(
+      req.body.incorrect_answers
+    );
 
     // Validate inputs
     await schema.questionSchema.validateAsync(req.body, { abortEarly: false });
-    
-    const { quiz_id, category, type, difficulty, question_text, correct_answer, incorrect_answers } = req.body;
+
+    const {
+      quiz_id,
+      category,
+      type,
+      difficulty,
+      question_text,
+      correct_answer,
+      incorrect_answers,
+    } = req.body;
 
     // Check quiz ownership
     const ownershipCheck = await checkQuizOwnership(Quiz, quiz_id, req.user.id);
     if (ownershipCheck.error) {
-      return res.status(ownershipCheck.code).json({ message: ownershipCheck.error });
+      return res
+        .status(ownershipCheck.code)
+        .json({ message: ownershipCheck.error });
     }
 
     // Generate question ID
     const allQuestion = await Question.findAll();
     const id = "Q" + (allQuestion.length + 1).toString().padStart(3, "0");
 
-    const imagePath = req.file ? `/uploads/${req.user.id}/${req.file.filename}` : null;
+    const imagePath = req.file
+      ? `/uploads/${req.user.id}/${req.file.filename}`
+      : null;
 
     const question = await Question.create({
       id,
@@ -113,7 +139,7 @@ const createQuestion = async (req, res) => {
       question_text: question.question_text,
       correct_answer: question.correct_answer,
       incorrect_answers: question.incorrect_answers,
-      image_url: formatImageUrl(req, imagePath)
+      image_url: formatImageUrl(req, imagePath),
     };
 
     res.status(201).json({
@@ -122,7 +148,9 @@ const createQuestion = async (req, res) => {
     });
   } catch (error) {
     if (error.isJoi) {
-      return res.status(400).json({ errors: error.details.map((err) => err.message) });
+      return res
+        .status(400)
+        .json({ errors: error.details.map((err) => err.message) });
     }
     res.status(500).json({ message: error.message });
   }
@@ -131,14 +159,26 @@ const createQuestion = async (req, res) => {
 const updateQuestion = async (req, res) => {
   try {
     // Parse incorrect_answers if it's a string
-    req.body.incorrect_answers = parseIncorrectAnswers(req.body.incorrect_answers);
+    req.body.incorrect_answers = parseIncorrectAnswers(
+      req.body.incorrect_answers
+    );
 
-    await schema.updateQuestionSchema.validateAsync(req.body, { abortEarly: false });
+    await schema.updateQuestionSchema.validateAsync(req.body, {
+      abortEarly: false,
+    });
 
-    const { question_id, category, type, difficulty, question_text, correct_answer, incorrect_answers } = req.body;
+    const {
+      question_id,
+      category,
+      type,
+      difficulty,
+      question_text,
+      correct_answer,
+      incorrect_answers,
+    } = req.body;
 
     const question = await Question.findOne({
-      where: { id: question_id }
+      where: { id: question_id },
     });
 
     if (!question) {
@@ -146,13 +186,21 @@ const updateQuestion = async (req, res) => {
     }
 
     // Check quiz ownership
-    const ownershipCheck = await checkQuizOwnership(Quiz, question.quiz_id, req.user.id);
+    const ownershipCheck = await checkQuizOwnership(
+      Quiz,
+      question.quiz_id,
+      req.user.id
+    );
     if (ownershipCheck.error) {
-      return res.status(ownershipCheck.code).json({ message: ownershipCheck.error });
+      return res
+        .status(ownershipCheck.code)
+        .json({ message: ownershipCheck.error });
     }
 
     // Check for new image upload
-    const imagePath = req.file ? `/uploads/${req.user.id}/${req.file.filename}` : null;
+    const imagePath = req.file
+      ? `/uploads/${req.user.id}/${req.file.filename}`
+      : null;
 
     await Question.update(
       {
@@ -165,13 +213,13 @@ const updateQuestion = async (req, res) => {
         is_generated: 0,
       },
       {
-        where: { id: question_id }
+        where: { id: question_id },
       }
     );
 
     if (imagePath) {
       const existingImage = await QuestionImage.findOne({
-        where: { question_id }
+        where: { question_id },
       });
 
       if (existingImage) {
@@ -190,9 +238,9 @@ const updateQuestion = async (req, res) => {
 
     // Get updated question
     const updatedQuestion = await Question.findOne({
-      where: { id: question_id }
+      where: { id: question_id },
     });
-    
+
     // Format response
     const formattedQuestion = {
       id: updatedQuestion.id,
@@ -203,7 +251,7 @@ const updateQuestion = async (req, res) => {
       question_text: updatedQuestion.question_text,
       correct_answer: updatedQuestion.correct_answer,
       incorrect_answers: updatedQuestion.incorrect_answers,
-      image_url: formatImageUrl(req, imagePath)
+      image_url: formatImageUrl(req, imagePath),
     };
 
     return res.status(200).json({
@@ -212,7 +260,9 @@ const updateQuestion = async (req, res) => {
     });
   } catch (error) {
     if (error.isJoi) {
-      return res.status(400).json({ errors: error.details.map((err) => err.message) });
+      return res
+        .status(400)
+        .json({ errors: error.details.map((err) => err.message) });
     }
     res.status(500).json({ message: error.message });
   }
@@ -220,33 +270,36 @@ const updateQuestion = async (req, res) => {
 
 const generateQuestion = async (req, res) => {
   try {
-    const { error, value } = teacherSchema.generateQuestionSchema.validate(req.body);
-    if (error) return res.status(400).json({ message: error.details[0].message });
+    const { error, value } = teacherSchema.generateQuestionSchema.validate(
+      req.body
+    );
+    if (error)
+      return res.status(400).json({ message: error.details[0].message });
 
     const { quiz_id, type, difficulty, category, amount } = value;
 
     // Check if quiz exists
     const quiz = await Quiz.findOne({
-      where: { id: quiz_id }
+      where: { id: quiz_id },
     });
-    
+
     if (!quiz) {
       return res.status(404).json({ message: "Quiz ID tidak ditemukan" });
     }
 
     const params = {
       amount: amount || 10,
-      category: category || 9,
-      difficulty: difficulty || undefined,
-      type: type || undefined,
     };
+    if (category) params.category = category;
+    if (difficulty) params.difficulty = difficulty;
+    if (type) params.type = type;
 
     const response = await opentdb.get("/api.php", { params });
     const data = response.data;
 
     if (!data.results || data.results.length === 0) {
       return res.status(404).json({
-        message: "Tidak ada pertanyaan yang ditemukan dari Open Trivia DB"
+        message: "Tidak ada pertanyaan yang ditemukan dari Open Trivia DB",
       });
     }
 
@@ -296,13 +349,16 @@ const generateQuestion = async (req, res) => {
 
 const deleteQuestion = async (req, res) => {
   try {
-    const { error, value } = teacherSchema.idSchema.validate({ id: req.params.question_id });
-    if (error) return res.status(400).json({ message: error.details[0].message });
+    const { error, value } = teacherSchema.idSchema.validate({
+      id: req.params.question_id,
+    });
+    if (error)
+      return res.status(400).json({ message: error.details[0].message });
 
     const question_id = value.id;
 
     const question = await Question.findOne({
-      where: { id: question_id }
+      where: { id: question_id },
     });
 
     if (!question) {
@@ -310,36 +366,45 @@ const deleteQuestion = async (req, res) => {
     }
 
     // Check quiz ownership
-    const ownershipCheck = await checkQuizOwnership(Quiz, question.quiz_id, req.user.id);
+    const ownershipCheck = await checkQuizOwnership(
+      Quiz,
+      question.quiz_id,
+      req.user.id
+    );
     if (ownershipCheck.error) {
-      return res.status(ownershipCheck.code).json({ message: ownershipCheck.error });
+      return res
+        .status(ownershipCheck.code)
+        .json({ message: ownershipCheck.error });
     }
 
     // Delete question
     await Question.destroy({
-      where: { id: question_id }
+      where: { id: question_id },
     });
 
     // Delete related image if exists
     const questionImage = await QuestionImage.findOne({
-      where: { question_id }
+      where: { question_id },
     });
 
     if (questionImage) {
       await QuestionImage.destroy({
-        where: { question_id }
+        where: { question_id },
       });
 
       // Delete image file from server
-      const imagePath = questionImage.image_url.replace(`/uploads/${req.user.id}/`, "");
+      const imagePath = questionImage.image_url.replace(
+        `/uploads/${req.user.id}/`,
+        ""
+      );
       const fullPath = `./uploads/${req.user.id}/${imagePath}`;
       if (fs.existsSync(fullPath)) {
         fs.unlinkSync(fullPath);
       }
     }
-    
+
     res.status(200).json({
-      message: "Berhasil menghapus pertanyaan dengan ID " + question_id
+      message: "Berhasil menghapus pertanyaan dengan ID " + question_id,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -366,7 +431,7 @@ const getUsersQuiz = async (req, res) => {
     // Add question count to each quiz
     for (const quiz of quizzes) {
       quiz.dataValues.question_count = await Question.count({
-        where: { quiz_id: quiz.id }
+        where: { quiz_id: quiz.id },
       });
     }
 
@@ -381,15 +446,20 @@ const getUsersQuiz = async (req, res) => {
 
 const getQuizDetail = async (req, res) => {
   try {
-    const { error, value } = teacherSchema.idSchema.validate({ id: req.params.quiz_id });
-    if (error) return res.status(400).json({ message: error.details[0].message });
+    const { error, value } = teacherSchema.idSchema.validate({
+      id: req.params.quiz_id,
+    });
+    if (error)
+      return res.status(400).json({ message: error.details[0].message });
 
     const quiz_id = value.id;
 
     // Check quiz ownership
     const ownershipCheck = await checkQuizOwnership(Quiz, quiz_id, req.user.id);
     if (ownershipCheck.error) {
-      return res.status(ownershipCheck.code).json({ message: ownershipCheck.error });
+      return res
+        .status(ownershipCheck.code)
+        .json({ message: ownershipCheck.error });
     }
 
     // Get questions for this quiz
@@ -409,9 +479,9 @@ const getQuizDetail = async (req, res) => {
     // Include images if available
     for (const question of questions) {
       const image = await QuestionImage.findOne({
-        where: { question_id: question.id }
+        where: { question_id: question.id },
       });
-      
+
       question.dataValues.image_url = formatImageUrl(req, image?.image_url);
     }
 
@@ -426,15 +496,20 @@ const getQuizDetail = async (req, res) => {
 
 const getQuizResult = async (req, res) => {
   try {
-    const { error, value } = teacherSchema.idSchema.validate({ id: req.params.quiz_id });
-    if (error) return res.status(400).json({ message: error.details[0].message });
+    const { error, value } = teacherSchema.idSchema.validate({
+      id: req.params.quiz_id,
+    });
+    if (error)
+      return res.status(400).json({ message: error.details[0].message });
 
     const quiz_id = value.id;
 
     // Check quiz ownership
     const ownershipCheck = await checkQuizOwnership(Quiz, quiz_id, req.user.id);
     if (ownershipCheck.error) {
-      return res.status(ownershipCheck.code).json({ message: ownershipCheck.error });
+      return res
+        .status(ownershipCheck.code)
+        .json({ message: ownershipCheck.error });
     }
 
     // Get quiz sessions

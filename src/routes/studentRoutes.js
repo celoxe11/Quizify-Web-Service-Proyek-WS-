@@ -1,7 +1,11 @@
 const express = require("express");
 
 const {
-  doQuiz,
+  startQuiz,
+  getQuestions,
+  answerQuestion,
+  updateAnswer,
+  submitQuiz,
   getGenerateQuestion,
 } = require("../controllers/studentController");
 
@@ -10,11 +14,39 @@ const logActivity = require("../middleware/logActivity");
 
 const router = express.Router();
 router.post(
-  "/quiz",
+  "/startquiz/:quiz_id",
   authenticate,
   isStudent,
-  logActivity("Student: Do quiz"),
-  doQuiz
+  logActivity("Student: Start quiz"),
+  startQuiz
+);
+router.get(
+  "/questions",
+  authenticate,
+  isStudent,
+  logActivity("Student: Get Questions"),
+  getQuestions
+);
+router.post(
+  "/answer",
+  authenticate,
+  isStudent,
+  logActivity("Student: Answer question"),
+  answerQuestion
+);
+router.put(
+  "/answer",
+  authenticate,
+  isStudent,
+  logActivity("Student: Update answer"),
+  updateAnswer
+);
+router.post(
+  "/submitquiz",
+  authenticate,
+  isStudent,
+  logActivity("Student: Submit quiz"),
+  submitQuiz
 );
 router.get(
   "/question/generate",
