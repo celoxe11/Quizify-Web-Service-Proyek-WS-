@@ -7,6 +7,7 @@ const {
   QuestionImage,
   QuizSession,
   User,
+  SubmissionAnswer
 } = require("../models");
 const {
   parseIncorrectAnswers,
@@ -15,6 +16,7 @@ const {
 } = require("../utils/helpers");
 
 const opentdb = require("../services/opentdb");
+const { Session } = require("inspector/promises");
 
 const createQuiz = async (req, res) => {
   try {
@@ -550,10 +552,33 @@ const getQuizResult = async (req, res) => {
   }
 };
 
-// Placeholder functions for future implementation
 const getStudentsAnswers = async (req, res) => {
   try {
-    res.status(501).json({ message: "Function not implemented yet" });
+    const { student_id, quiz_id } = req.body;
+
+    const sessions = await QuizSession.findAll({
+      where: {
+        user_id: student_id,
+        quiz_id,
+      },
+    });
+
+    if (!sessions || sessions.length === 0) {
+      return res.status(404).json({ message: "Tidak ada sesi quiz yang ditemukan" });
+    }
+
+    // Get answers for all sessions
+    const answers = await SubmissionAnswer.findAll({
+      where: {
+        quiz_session_id: sessions.map(session => session.id)
+      },
+    });
+
+    res.status(200).json({ 
+      message: "Berhasil mendapatkan jawaban siswa",
+      sessions: sessions,
+      answers: answers 
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -561,7 +586,72 @@ const getStudentsAnswers = async (req, res) => {
 
 const getQuizAccuracy = async (req, res) => {
   try {
-    res.status(501).json({ message: "Function not implemented yet" });
+    const { quiz_id } = req.params;
+    // Check quiz ownership
+    const ownershipCheck = await checkQuizOwnership(Quiz, quiz_id, req.user.id);
+    if (ownershipCheck.error) {
+      return res
+        .status(ownershipCheck.code)
+        .json({ message: ownershipCheck.error });
+    }
+
+    // Get all questions for this quiz
+    const questions = await Question.findAll({
+      where: { quiz_id },
+      attributes: ['id', 'question_text']
+    });
+
+    if (questions.length === 0) {
+      return res.status(404).json({ message: "Tidak ada pertanyaan ditemukan untuk kuis ini" });
+    }
+
+    // cari quiz session yang selesai
+    const quizSessions = await QuizSession.findAll({
+      where: { quiz_id, status: 'completed' },
+      attributes: ['id']
+    });
+
+    if (quizSessions.length === 0) {
+      return res.status(404).json({ message: "Tidak ada sesi kuis yang selesai ditemukan" });
+    }
+
+    // jawaban quiz
+    const submissionAnswers = await SubmissionAnswer.findAll({
+      where: {
+        quiz_session_id: quizSessions.map(session => session.id)
+      },
+      attributes: ['question_id', 'is_correct']
+    });
+
+    // hitung statistik untuk setiap pertanyaan
+    const questionStats = questions.map(question => {
+      const questionAnswers = submissionAnswers.filter(
+        answer => answer.question_id === question.id
+      );
+      
+      const total_answered = questionAnswers.length;
+      const correct_answers = questionAnswers.filter(
+        answer => answer.is_correct
+      ).length;
+      const incorrect_answers = total_answered - correct_answers;
+      const accuracy = total_answered > 0 
+        ? Math.round((correct_answers / total_answered) * 100)
+        : 0;
+
+      return {
+        question_id: question.id,
+        question_text: question.question_text,
+        total_answered,
+        correct_answers,
+        incorrect_answers,
+        accuracy
+      };
+    });
+
+    res.status(200).json({
+      message: `Berhasil mendapatkan statistik akurasi kuis ${ownershipCheck.quiz.title}`,
+      question_stats: questionStats
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -569,7 +659,34 @@ const getQuizAccuracy = async (req, res) => {
 
 const subscribe = async (req, res) => {
   try {
-    res.status(501).json({ message: "Function not implemented yet" });
+    const userId = req.user.id;
+
+    const user = await User.findOne({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "User tidak ditemukan" });
+    }
+
+    if (user.subscription_id === 2) {
+      return res.status(200).json({ message: "Guru sudah memiliki subscription!" });
+    }
+
+    // Update user's subscription to premium
+    await User.update(
+      { subscription_id: 2 },
+      { where: { id: userId } }
+    );
+
+    res.status(200).json({ 
+      message: `Guru ${user.name} Berhasil mengupgrade subscription ke premium`,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      }
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -577,7 +694,34 @@ const subscribe = async (req, res) => {
 
 const unsubscribe = async (req, res) => {
   try {
-    res.status(501).json({ message: "Function not implemented yet" });
+    const userId = req.user.id;
+
+    const user = await User.findOne({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "User tidak ditemukan" });
+    }
+
+    if (user.subscription_id === 1) {
+      return res.status(200).json({ message: "Guru sudah memiliki subscription free!" });
+    }
+
+    // Update user's subscription to free
+    await User.update(
+      { subscription_id: 1 },
+      { where: { id: userId } }
+    );
+
+    res.status(200).json({ 
+      message: `Guru ${user.name} Berhasil membatalkan subscription kembali ke free`,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      }
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
