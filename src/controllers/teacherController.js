@@ -74,6 +74,50 @@ const updateQuiz = async (req, res) => {
   }
 };
 
+const endQuiz = async (req, res) => {
+  try {
+    const { session_id } = req.params;
+    const teacher_id = req.user.id;
+
+    // Verify session exists and belongs to user
+    const session = await QuizSession.findOne({
+      where: {
+        id: session_id,
+        status: "in_progress"
+      }
+    });
+
+    if (!session) {
+      return res.status(404).json({ message: "Sesi kuis tidak ditemukan atau sudah selesai" });
+    }
+
+    //cek apakah quiz dari session ini memang punya teacher
+    const quiz = await Quiz.findOne({
+      where: {
+        id: session.quiz_id,
+        created_by: teacher_id
+      }
+    });
+
+    if (!quiz) {
+      return res.status(404).json({ message: "Anda tidak memiliki akses ke kuis ini" });
+    }
+
+    // Update session
+    await session.update({
+      status: "completed",
+      ended_at: new Date()
+    });
+
+    res.status(200).json({
+      message: `Kuis ${session.id} berhasil diselesaikan`,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
 const createQuestion = async (req, res) => {
   try {
     // Parse incorrect_answers if it's a string
@@ -625,6 +669,7 @@ const getQuizAccuracy = async (req, res) => {
 
     // hitung statistik untuk setiap pertanyaan
     const questionStats = questions.map(question => {
+      //ambil jawaban dari quiz yg dicari
       const questionAnswers = submissionAnswers.filter(
         answer => answer.question_id === question.id
       );
@@ -633,17 +678,30 @@ const getQuizAccuracy = async (req, res) => {
       const correct_answers = questionAnswers.filter(
         answer => answer.is_correct
       ).length;
+
+      //hitung berapa yg salah
       const incorrect_answers = total_answered - correct_answers;
-      const accuracy = total_answered > 0 
-        ? Math.round((correct_answers / total_answered) * 100)
-        : 0;
+
+      //ngitung akurasi dlm persen
+      let accuracy, mean;
+      if (total_answered > 0) {
+        accuracy = Math.round((correct_answers / total_answered) * 100);
+        
+      //rata-rata yang jawab benar
+        mean = correct_answers / total_answered
+      } else {
+        accuracy = 0;
+        mean = 0
+      }
+
 
       return {
         question_id: question.id,
-        question_text: question.question_text,
+        question: question.question_text,
         total_answered,
         correct_answers,
         incorrect_answers,
+        mean,
         accuracy
       };
     });
@@ -685,6 +743,7 @@ const subscribe = async (req, res) => {
         id: user.id,
         name: user.name,
         email: user.email,
+        status: "Not subscribed"
       }
     });
   } catch (error) {
@@ -720,6 +779,7 @@ const unsubscribe = async (req, res) => {
         id: user.id,
         name: user.name,
         email: user.email,
+        status: "Not subscribed"
       }
     });
   } catch (error) {
@@ -730,6 +790,7 @@ const unsubscribe = async (req, res) => {
 module.exports = {
   createQuiz,
   updateQuiz,
+  endQuiz,
   createQuestion,
   updateQuestion,
   generateQuestion,

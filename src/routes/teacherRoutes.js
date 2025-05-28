@@ -3,6 +3,7 @@ const express = require("express");
 const {
   createQuiz,
   updateQuiz,
+  endQuiz,
   createQuestion,
   updateQuestion,
   generateQuestion,
@@ -39,6 +40,13 @@ router.put(
   isTeacher,
   logActivity("Teacher: Update Quiz"),
   updateQuiz
+);
+router.post(
+  "/endquiz/:session_id",
+  authenticate,
+  isTeacher,
+  logActivity("Teacher: End quiz"),
+  endQuiz
 );
 router.post(
   "/question",

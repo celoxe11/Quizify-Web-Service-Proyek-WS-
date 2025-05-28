@@ -59,61 +59,6 @@ const startQuiz = async (req, res) => {
   }
 };
 
-const endQuiz = async (req, res) => {
-  try {
-    const { session_id } = req.params;
-    const user_id = req.user.id;
-
-    // Verify session exists and belongs to user
-    const session = await QuizSession.findOne({
-      where: {
-        id: session_id,
-        user_id,
-        status: "in_progress"
-      }
-    });
-
-    if (!session) {
-      return res.status(404).json({ message: "Sesi kuis tidak ditemukan atau sudah selesai" });
-    }
-
-    // Get all questions for this quiz
-    const totalQuestions = await Question.count({
-      where: { quiz_id: session.quiz_id }
-    });
-
-    // Get correct answers count
-    const correctAnswers = await SubmissionAnswer.count({
-      where: {
-        quiz_session_id: session_id,
-        is_correct: true
-      }
-    });
-
-    // Calculate score (percentage of correct answers)
-    const score = totalQuestions > 0 
-      ? Math.round((correctAnswers / totalQuestions) * 100)
-      : 0;
-
-    // Update session
-    await session.update({
-      status: "completed",
-      ended_at: new Date(),
-      score: score
-    });
-
-    res.status(200).json({
-      message: "Kuis berhasil diselesaikan",
-      session_id: session.id,
-      score: score,
-      total_questions: totalQuestions,
-      correct_answers: correctAnswers
-    });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
 const getQuestions = async (req, res) => {
   try {
     const { session_id } = req.params;
@@ -129,7 +74,7 @@ const getQuestions = async (req, res) => {
 
     if (!session) {
       return res.status(404).json({ 
-        message: "Sesi kuis tidak ditemukan atau sudah selesai" 
+        message: "Sesi kuis tidak ditemukan, sudah selesai, atau sudah diselesaikan oleh guru" 
       });
     }
 
@@ -210,7 +155,7 @@ const answerQuestion = async (req, res) => {
     });
 
     if (!session) {
-      return res.status(404).json({ message: "Sesi kuis tidak ditemukan atau sudah selesai" });
+      return res.status(404).json({ message: "Sesi kuis tidak ditemukan, sudah selesai, atau sudah diselesaikan oleh guru" });
     }
 
     const question = await Question.findOne({
@@ -410,7 +355,6 @@ const getGenerateQuestion = async (req, res) => {
 
 module.exports = {
   startQuiz,
-  endQuiz,
   getQuestions,
   answerQuestion,
   updateAnswer,
