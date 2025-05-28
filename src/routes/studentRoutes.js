@@ -20,6 +20,13 @@ router.post(
   logActivity("Student: Start quiz"),
   startQuiz
 );
+router.post(
+  "/endquiz/:quiz_id",
+  authenticate,
+  isStudent,
+  logActivity("Student: End quiz"),
+  endQuiz
+);
 router.get(
   "/questions",
   authenticate,
