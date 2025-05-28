@@ -2,6 +2,7 @@ const express = require("express");
 
 const {
   startQuiz,
+  endQuiz,
   getQuestions,
   answerQuestion,
   updateAnswer,
@@ -21,14 +22,14 @@ router.post(
   startQuiz
 );
 router.post(
-  "/endquiz/:quiz_id",
+  "/endquiz/:session_id",
   authenticate,
   isStudent,
   logActivity("Student: End quiz"),
   endQuiz
 );
 router.get(
-  "/questions",
+  "/questions/:session_id",
   authenticate,
   isStudent,
   logActivity("Student: Get Questions"),

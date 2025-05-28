@@ -123,32 +123,63 @@ const getQuestions = async (req, res) => {
       where: {
         id: session_id,
         user_id,
-        status: "active"
+        status: "in_progress"
       }
     });
 
     if (!session) {
-      return res.status(404).json({ message: "Sesi kuis tidak ditemukan atau sudah selesai" });
+      return res.status(404).json({ 
+        message: "Sesi kuis tidak ditemukan atau sudah selesai" 
+      });
     }
 
     const questions = await Question.findAll({
       where: { quiz_id: session.quiz_id },
-      attributes: ['id', 'question_text', 'type', 'difficulty', 'category']
+      attributes: [
+        'id', 
+        'question_text', 
+        'type', 
+        'difficulty', 
+        'category', 
+        'correct_answer', 
+        'incorrect_answers'
+      ]
     });
 
-    // jawaban dari quiz
+    // ambil jawaban yg udh ada
     const existingAnswers = await SubmissionAnswer.findAll({
       where: { quiz_session_id: session_id },
-      attributes: ['question_id', 'answer']
+      attributes: ['question_id', 'selected_answer']
     });
 
-    // Format questions with answer status
+    // question + jawaban
     const formattedQuestions = questions.map(question => {
-      const answer = existingAnswers.find(a => a.question_id === question.id);
+      const userAnswer = existingAnswers.find(
+        answer => answer.question_id === question.id
+      );
+
+      // ini cek string atau ga biar pas dipisah array ga kepisah per karakter
+      let incorrectAnswers;
+      if (typeof question.incorrect_answers === 'string') {
+        incorrectAnswers = JSON.parse(question.incorrect_answers);
+      } else {
+        incorrectAnswers = question.incorrect_answers;
+      }
+
+      const allPossibleAnswers = [
+        question.correct_answer,
+        ...incorrectAnswers
+      ].sort(() => Math.random() - 0.5);
+
+      // Return formatted question object
       return {
-        ...question.toJSON(),
-        answered: !!answer,
-        user_answer: answer ? answer.answer : null
+        id: question.id,
+        question_text: question.question_text,
+        type: question.type,
+        difficulty: question.difficulty,
+        category: question.category,
+        answered: !!userAnswer, // true if question has been answered
+        possible_answers: allPossibleAnswers
       };
     });
 
@@ -156,8 +187,11 @@ const getQuestions = async (req, res) => {
       message: "Berhasil mendapatkan pertanyaan",
       questions: formattedQuestions
     });
+
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ 
+      message: error.message 
+    });
   }
 };
 
@@ -171,7 +205,7 @@ const answerQuestion = async (req, res) => {
       where: {
         id: session_id,
         user_id,
-        status: "active"
+        status: "in_progress"
       }
     });
 
@@ -179,7 +213,6 @@ const answerQuestion = async (req, res) => {
       return res.status(404).json({ message: "Sesi kuis tidak ditemukan atau sudah selesai" });
     }
 
-    // Get question to check correct answer
     const question = await Question.findOne({
       where: { 
         id: question_id,
@@ -191,7 +224,7 @@ const answerQuestion = async (req, res) => {
       return res.status(404).json({ message: "Pertanyaan tidak ditemukan" });
     }
 
-    // Check if answer already exists
+    //cek udh dijawab
     const existingAnswer = await SubmissionAnswer.findOne({
       where: {
         quiz_session_id: session_id,
@@ -199,25 +232,26 @@ const answerQuestion = async (req, res) => {
       }
     });
 
-    const is_correct = answer === question.correct_answer;
-
     if (existingAnswer) {
-      // Update existing answer
-      await existingAnswer.update({
-        answer,
-        is_correct,
-        submitted_at: new Date()
-      });
-    } else {
-      // Create new answer
-      await SubmissionAnswer.create({
-        quiz_session_id: session_id,
-        question_id,
-        answer,
-        is_correct,
-        submitted_at: new Date()
+      return res.status(400).json({ 
+        message: "Jawaban sudah disubmit!" 
       });
     }
+
+    const is_correct = answer === question.correct_answer;
+
+
+    const jumlahJawaban = await SubmissionAnswer.count();
+    const idBaruJawaban = `SA${padNumber(jumlahJawaban + 1)}`;
+
+    await SubmissionAnswer.create({
+      id: idBaruJawaban,
+      quiz_session_id: session_id,
+      question_id,
+      selected_answer: answer,
+      is_correct,
+      answered_at: new Date()
+    });
 
     res.status(200).json({
       message: "Jawaban berhasil disimpan",
@@ -227,9 +261,6 @@ const answerQuestion = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
-
-////
 
 const updateAnswer = async (req, res) => {
   try {
