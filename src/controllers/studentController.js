@@ -1,4 +1,4 @@
-const { Quiz, QuizSession, Question, SubmissionAnswer } = require("../models");
+const { Quiz, QuizSession, Question, SubmissionAnswer, User } = require("../models");
 const opentdb = require("../services/opentdb");
 const { Op } = require("sequelize");
 
@@ -91,18 +91,7 @@ const getQuestions = async (req, res) => {
       ]
     });
 
-    // ambil jawaban yg udh ada
-    const existingAnswers = await SubmissionAnswer.findAll({
-      where: { quiz_session_id: session_id },
-      attributes: ['question_id', 'selected_answer']
-    });
-
-    // question + jawaban
     const formattedQuestions = questions.map(question => {
-      const userAnswer = existingAnswers.find(
-        answer => answer.question_id === question.id
-      );
-
       // ini cek string atau ga biar pas dipisah array ga kepisah per karakter
       let incorrectAnswers;
       if (typeof question.incorrect_answers === 'string') {
@@ -123,7 +112,6 @@ const getQuestions = async (req, res) => {
         type: question.type,
         difficulty: question.difficulty,
         category: question.category,
-        answered: !!userAnswer, // true if question has been answered
         possible_answers: allPossibleAnswers
       };
     });
@@ -353,6 +341,109 @@ const getGenerateQuestion = async (req, res) => {
   }
 };
 
+const getSessionHistory = async (req, res) => {
+  try {
+    const user_id = req.user.id;
+
+    const allSessions = await QuizSession.findAll({
+      where: {
+        user_id: user_id
+      },
+      include: [{
+        model: Quiz,
+        attributes: ['id', 'title', 'description', 'category', 'created_by'], //detail kuis
+        include: [{
+          model: User,
+          attributes: ['name'] //dari created_by, cari dibuat sama siapa
+        }]
+      }],
+      order: [['started_at', 'DESC']]
+    });
+
+    if (!allSessions || allSessions.length === 0) {
+      return res.status(404).json({
+        message: "Sejarah sesi quiz kosong, siswa belum pernah melakukan quiz",
+      });
+    }
+
+    const formattedHistory = allSessions.map(session => ({
+      session_id: session.id,
+      quiz: {
+        id: session.Quiz.id,
+        title: session.Quiz.title,
+        description: session.Quiz.description,
+        category: session.Quiz.category,
+        teacher_name: session.Quiz.User.name
+      }
+    }));
+
+    res.status(200).json({
+      message: "Berhasil mendapatkan sejarah sesi quiz",
+      history: formattedHistory
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const getQuizReview = async (req, res) => {
+  try {
+    const { quiz_id } = req.params;
+    const user_id = req.user.id;
+
+    // sesi terakhir dari quiz yang dicari
+    const lastSession = await QuizSession.findOne({
+      where: {
+        user_id: user_id,
+        quiz_id: quiz_id,
+        status: "completed"
+      },
+      order: [['ended_at', 'DESC']], //urutan paling baru
+      include: [{
+        model: Quiz,
+        attributes: ['id', 'title', 'description', 'category'] //detail quiz
+      }, {
+        model: SubmissionAnswer,
+        attributes: ['question_id', 'selected_answer', 'is_correct'], // pertanyaan mana + jawaban
+        include: [{
+          model: Question,
+          attributes: ['id', 'question_text', 'correct_answer', 'incorrect_answers'] //detail pertanyaan
+        }]
+      }]
+    });
+
+    if (!lastSession) {
+      return res.status(404).json({
+        message: "Tidak ada sesi kuis yang sudah diselesaikan untuk kuis ini."
+      });
+    }
+
+    const formattedReview = {
+      Session: lastSession.id,
+      Title: lastSession.Quiz.title,
+      Description: lastSession.Quiz.description,
+      Category: lastSession.Quiz.category,
+      Score: lastSession.score,
+      Answers: lastSession.SubmissionAnswers.map(submission => ({
+        ID: submission.Question.id,
+        Question: submission.Question.question_text,
+        "Correct Answer": submission.Question.correct_answer,
+        "Student's Answer": submission.selected_answer,
+        "Is it correct?": submission.is_correct
+      }))
+    };
+
+    res.status(200).json({
+      message: "Berhasil mendapatkan review kuis terakhir",
+      Review_Quiz: formattedReview
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   startQuiz,
   getQuestions,
@@ -360,4 +451,6 @@ module.exports = {
   updateAnswer,
   submitQuiz,
   getGenerateQuestion,
+  getSessionHistory,
+  getQuizReview
 };

@@ -7,6 +7,8 @@ const {
   updateAnswer,
   submitQuiz,
   getGenerateQuestion,
+  getSessionHistory,
+  getQuizReview
 } = require("../controllers/studentController");
 
 const { authenticate, isStudent } = require("../middleware/authMiddleware");
@@ -56,5 +58,18 @@ router.get(
   logActivity("Student: Generate Questions"),
   getGenerateQuestion
 );
-
+router.get(
+  "/history",
+  authenticate,
+  isStudent,
+  logActivity("Student: Get Session History"),
+  getSessionHistory
+);
+router.get(
+  "/review/:quiz_id",
+  authenticate,
+  isStudent,
+  logActivity("Student: Review Quiz"),
+  getQuizReview
+);
 module.exports = router;
