@@ -30,8 +30,7 @@ CREATE TABLE USER (
     subscription_id INT NOT NULL,
     is_active BOOLEAN DEFAULT TRUE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (subscription_id) REFERENCES subscription(id_subs) ON DELETE RESTRICT
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- QUIZ
@@ -42,8 +41,7 @@ CREATE TABLE Quiz (
     category VARCHAR(100),
     created_by VARCHAR(10),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (created_by) REFERENCES USER(id) ON DELETE SET NULL
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- QUESTION
@@ -59,8 +57,7 @@ CREATE TABLE Question (
     is_generated BOOLEAN DEFAULT FALSE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    last_subscribe DATETIME,
-    FOREIGN KEY (quiz_id) REFERENCES Quiz(id) ON DELETE SET NULL
+    last_subscribe DATETIME
 );
 
 -- QUESTIONS IMAGE
@@ -69,9 +66,7 @@ CREATE TABLE QuestionImage (
     user_id VARCHAR(10) NOT NULL,
     question_id VARCHAR(10) NOT NULL,
     image_url TEXT NOT NULL,
-    uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (question_id) REFERENCES Question(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES USER(id) ON DELETE CASCADE
+    uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE UserLog (
@@ -79,8 +74,7 @@ CREATE TABLE UserLog (
     user_id VARCHAR(10) NOT NULL,
     action_type VARCHAR(255) NOT NULL,
     `endpoint` VARCHAR(255), 
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES USER(id) ON DELETE CASCADE
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 -- QUIZ SESSION
@@ -91,9 +85,7 @@ CREATE TABLE QuizSession (
     started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     ended_at DATETIME,
     score INT,
-    `status` ENUM('in_progress', 'completed', 'expired') DEFAULT 'in_progress',
-    FOREIGN KEY (quiz_id) REFERENCES Quiz(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES USER(id) ON DELETE CASCADE
+    `status` ENUM('in_progress', 'completed', 'expired') DEFAULT 'in_progress'
 );
 
 -- SUBMISSION ANSWER
@@ -103,9 +95,7 @@ CREATE TABLE SubmissionAnswer (
     question_id VARCHAR(10) NOT NULL,
     selected_answer TEXT,
     is_correct BOOLEAN,
-    answered_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (quiz_session_id) REFERENCES QuizSession(id) ON DELETE CASCADE,
-    FOREIGN KEY (question_id) REFERENCES Question(id) ON DELETE CASCADE
+    answered_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 -- QUESTION ACCURACY
@@ -117,54 +107,5 @@ CREATE TABLE QuestionAccuracy (
     correct_answers INT DEFAULT 0,
     incorrect_answers INT DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (question_id) REFERENCES Question(id) ON DELETE CASCADE,
-    FOREIGN KEY (quiz_id) REFERENCES Quiz(id) ON DELETE SET NULL
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
-
--- INSERT SUBSCRIPTIONS
-INSERT INTO Subscription (STATUS) VALUES
-('Free'),
-('Premium');
-
--- INSERT USERS
-INSERT INTO USER (id, NAME, username, email, password_hash, role, subscription_id)
-VALUES
-('TE001', 'Alice Teacher', 'Alice', 'alice@quizify.com', 'hashed_pass_1', 'teacher', 2),
-('ST002', 'Bob Student', 'Bob', 'bob@student.com', 'hashed_pass_2', 'student', 1),
-('ST003', 'Charlie Admin', 'Charlie', 'charlie@admin.com', 'hashed_pass_3', 'student', 2);
-
--- QUIZZES
-INSERT INTO Quiz (id, title, description, category, created_by)
-VALUES
-('QU001', 'Science Quiz', 'Test your science knowledge!', 'Science', 'TE001'),
-('QU002', 'History Basics', 'A quiz on world history.', 'History', 'TE001'),
-('QU003', 'Mixed Knowledge', 'Combination of topics.', NULL, 'TE001');
-
--- QUESTIONS
-INSERT INTO Question (id, quiz_id, category, TYPE, difficulty, question_text, correct_answer, incorrect_answers, is_generated)
-VALUES
-('Q001', 'QU001', 'Science: Computers', 'multiple', 'easy', 'What does CPU stand for?', 'Central Processing Unit', '["Computer Personal Unit", "Central Processor Unit", "Computer Processing Unit"]', TRUE),
-('Q002', 'QU001', 'Science: Computers', 'boolean', 'medium', 'The GPU is primarily used for rendering graphics.', 'True', '["False"]', TRUE),
-('Q003', 'QU002', 'History', 'multiple', 'hard', 'Who was the first emperor of Rome?', 'Augustus', '["Julius Caesar", "Nero", "Caligula"]', FALSE);
-
--- QUIZ SESSIONS
-INSERT INTO QuizSession (id, quiz_id, user_id, started_at, ended_at, score, STATUS)
-VALUES
-('S001', 'QU001', 'ST002', NOW(), NOW(), 80, 'completed'),
-('S002', 'QU002', 'ST002', NOW(), NOW(), 60, 'completed'),
-('S003', 'QU003', 'ST002', NOW(), NULL, NULL, 'in_progress');
-
--- SUBMISSION ANSWERS
-INSERT INTO SubmissionAnswer (id, quiz_session_id, question_id, selected_answer, is_correct)
-VALUES
-('SA001', 'S001', 'Q001', 'Central Processing Unit', TRUE),
-('SA002', 'S001', 'Q002', 'True', TRUE),
-('SA003', 'S002', 'Q003', 'Julius Caesar', FALSE);
-
--- QUESTION ACCURACY
-INSERT INTO QuestionAccuracy (id, question_id, quiz_id, total_answered, correct_answers, incorrect_answers)
-VALUES
-('QA001', 'Q001', 'QU001', 5, 4, 1),
-('QA002', 'Q002', 'QU001', 5, 5, 0),
-('QA003', 'Q003', 'QU002', 5, 2, 3);

@@ -44,8 +44,7 @@ async function seedDatabase() {
         subscription_id INT NOT NULL,
         is_active BOOLEAN DEFAULT TRUE,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (subscription_id) REFERENCES Subscription(id_subs) ON DELETE RESTRICT
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       );
 
       CREATE TABLE Quiz (
@@ -55,8 +54,7 @@ async function seedDatabase() {
         category VARCHAR(100),
         created_by VARCHAR(10),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (created_by) REFERENCES USER(id) ON DELETE SET NULL
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       );
 
       CREATE TABLE Question (
@@ -70,8 +68,7 @@ async function seedDatabase() {
         incorrect_answers JSON NOT NULL,
         is_generated BOOLEAN DEFAULT FALSE,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (quiz_id) REFERENCES Quiz(id) ON DELETE SET NULL
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       );
 
       CREATE TABLE QuestionImage (
@@ -79,9 +76,7 @@ async function seedDatabase() {
         user_id VARCHAR(10) NOT NULL,
         question_id VARCHAR(10) NOT NULL,
         image_url TEXT NOT NULL,
-        uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (question_id) REFERENCES Question(id) ON DELETE CASCADE,
-        FOREIGN KEY (user_id) REFERENCES USER(id) ON DELETE CASCADE
+        uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
 
       CREATE TABLE QuizSession (
@@ -91,9 +86,7 @@ async function seedDatabase() {
         started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         ended_at DATETIME,
         score INT,
-        status ENUM('in_progress', 'completed', 'expired') DEFAULT 'in_progress',
-        FOREIGN KEY (quiz_id) REFERENCES Quiz(id) ON DELETE CASCADE,
-        FOREIGN KEY (user_id) REFERENCES USER(id) ON DELETE CASCADE
+        status ENUM('in_progress', 'completed', 'expired') DEFAULT 'in_progress'
       );
 
       CREATE TABLE SubmissionAnswer (
@@ -102,9 +95,7 @@ async function seedDatabase() {
         question_id VARCHAR(10) NOT NULL,
         selected_answer TEXT,
         is_correct BOOLEAN,
-        answered_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (quiz_session_id) REFERENCES QuizSession(id) ON DELETE CASCADE,
-        FOREIGN KEY (question_id) REFERENCES Question(id) ON DELETE CASCADE
+        answered_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
 
       CREATE TABLE QuestionAccuracy (
@@ -115,9 +106,7 @@ async function seedDatabase() {
         correct_answers INT DEFAULT 0,
         incorrect_answers INT DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (question_id) REFERENCES Question(id) ON DELETE CASCADE,
-        FOREIGN KEY (quiz_id) REFERENCES Quiz(id) ON DELETE SET NULL
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       );
 
       CREATE TABLE UserLog (
@@ -125,8 +114,7 @@ async function seedDatabase() {
         user_id VARCHAR(10) NOT NULL,
         action_type VARCHAR(255) NOT NULL,
         endpoint VARCHAR(255),
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES USER(id) ON DELETE CASCADE
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
     `;
 

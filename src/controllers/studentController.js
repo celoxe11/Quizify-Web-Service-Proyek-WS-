@@ -130,13 +130,13 @@ const getQuestions = async (req, res) => {
 
 const answerQuestion = async (req, res) => {
   try {
-    const { session_id, question_id, answer } = req.body;
+    const { quiz_session_id, question_id, selected_answer } = req.body;
     const user_id = req.user.id;
 
     // cek session ada + punya user
     const session = await QuizSession.findOne({
       where: {
-        id: session_id,
+        id: quiz_session_id,
         user_id,
         status: "in_progress"
       }
@@ -160,7 +160,7 @@ const answerQuestion = async (req, res) => {
     //cek udh dijawab
     const existingAnswer = await SubmissionAnswer.findOne({
       where: {
-        quiz_session_id: session_id,
+        quiz_session_id: quiz_session_id,
         question_id
       }
     });
@@ -171,24 +171,36 @@ const answerQuestion = async (req, res) => {
       });
     }
 
-    const is_correct = answer === question.correct_answer;
+    const allPossibleAnswers = [
+      question.correct_answer,
+      ...(typeof question.incorrect_answers === 'string' ? JSON.parse(question.incorrect_answers) : question.incorrect_answers)
+    ];
+    if (!allPossibleAnswers.includes(selected_answer)) {
+      return res.status(400).json({
+        message: "Jawaban tidak valid, tidak ada pada opsi pertanyaan",
+      });
+    }
 
+    const normalizedSelected = selected_answer.toString().trim();
+    const normalizedCorrect = question.correct_answer.toString().trim();
+    const is_correct = normalizedSelected === normalizedCorrect;
 
     const jumlahJawaban = await SubmissionAnswer.count();
     const idBaruJawaban = `SA${padNumber(jumlahJawaban + 1)}`;
 
     await SubmissionAnswer.create({
       id: idBaruJawaban,
-      quiz_session_id: session_id,
+      quiz_session_id: quiz_session_id,
       question_id,
-      selected_answer: answer,
+      selected_answer: selected_answer,
       is_correct,
       answered_at: new Date()
     });
 
     res.status(200).json({
       message: "Jawaban berhasil disimpan",
-      is_correct
+      question_text: question.question_text,
+      selected_answer: selected_answer,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -198,14 +210,17 @@ const answerQuestion = async (req, res) => {
 const updateAnswer = async (req, res) => {
   try {
     const { quiz_session_id, question_id, selected_answer } = req.body;
-    const quizSession = await QuizSession.findByPk(quiz_session_id);
-    if (!quizSession) {
-      return res.status(404).json({ message: "Quiz session tidak ditemukan" });
-    }
 
-    const question = await Question.findByPk(question_id);
-    if (!question) {
-      return res.status(404).json({ message: "Pertanyaan tidak ditemukan" });
+    const session = await QuizSession.findOne({
+      where: {
+        id: quiz_session_id,
+        user_id,
+        status: "in_progress"
+      }
+    });
+
+    if (!session) {
+      return res.status(404).json({ message: "Sesi kuis tidak ditemukan, sudah selesai, atau sudah diselesaikan oleh guru" });
     }
 
     // cek apakah jawaban sudah pernah diberikan
@@ -219,9 +234,35 @@ const updateAnswer = async (req, res) => {
       return res.status(404).json({ message: "Jawaban tidak ditemukan" });
     }
 
+    const quizSession = await QuizSession.findByPk(quiz_session_id);
+    if (!quizSession) {
+      return res.status(404).json({ message: "Quiz session tidak ditemukan" });
+    }
+
+    const question = await Question.findByPk(question_id);
+    if (!question) {
+      return res.status(404).json({ message: "Pertanyaan tidak ditemukan" });
+    }
+
+    // cek kalau jawabannya ada pada opsi pilihan
+    const allPossibleAnswers = [
+      question.correct_answer,
+      ...(typeof question.incorrect_answers === 'string' ? JSON.parse(question.incorrect_answers) : question.incorrect_answers)
+    ];
+    if (!allPossibleAnswers.includes(selected_answer)) {
+      return res.status(400).json({
+        message: "Jawaban tidak valid, tidak ada pada opsi pertanyaan",
+      });
+    }
+
+    const normalizedSelected = selected_answer.toString().trim();
+    const normalizedCorrect = question.correct_answer.toString().trim();
+    const is_correct = normalizedSelected === normalizedCorrect;
+
     await SubmissionAnswer.update(
       {
         selected_answer: selected_answer,
+        is_correct: is_correct,
       },
       {
         where: {

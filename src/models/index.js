@@ -14,11 +14,11 @@ Subscription.hasMany(User, { foreignKey: 'subscription_id' });
 
 // 2. User <-> UserLog
 User.hasMany(UserLog, { foreignKey: 'user_id' });
-UserLog.belongsTo(User, { foreignKey: 'user_id' });
+UserLog.belongsTo(User, { foreignKey: 'user_id', targetKey: 'id' });
 
 // 3. User <-> Quiz (creator)
 User.hasMany(Quiz, { foreignKey: 'created_by' });
-Quiz.belongsTo(User, { foreignKey: 'created_by' });
+Quiz.belongsTo(User, { foreignKey: 'created_by', targetKey: 'id' });
 
 // 4. Quiz <-> Question
 Quiz.hasMany(Question, { foreignKey: 'quiz_id' });

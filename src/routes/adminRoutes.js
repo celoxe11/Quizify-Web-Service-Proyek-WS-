@@ -20,7 +20,7 @@ router.get(
   getLog
 );
 router.put(
-  "/token",
+  "/users/subscription",
   authenticate,
   logActivity("Admin: View Log Access"),
   isAdmin,
