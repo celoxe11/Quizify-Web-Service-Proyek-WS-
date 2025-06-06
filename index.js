@@ -17,6 +17,10 @@ app.use("/api/teacher", teacherRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/uploads", imageRoutes);
 
+app.get("/", (req, res) => {
+  res.json({ message: "Welcome to Quizify API" });
+});
+
 sequelize
   .sync()
   .then(() => {
