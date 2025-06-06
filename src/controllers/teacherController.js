@@ -100,19 +100,46 @@ const endQuiz = async (req, res) => {
     });
 
     if (!quiz) {
-      return res.status(404).json({ message: "Anda tidak memiliki akses ke kuis ini" });
+      return res.status(403).json({ message: "Anda tidak memiliki akses ke kuis ini" });
     }
 
-    // Update session
+    // hitung total pertanyaan pada kuiz
+    const totalQuestions = await Question.count({
+      where: { quiz_id: session.quiz_id },
+    });
+
+    // hitung total jawaban yang benar
+    const correctAnswers = await SubmissionAnswer.count({
+      where: { 
+        quiz_session_id: session.id, 
+        is_correct: 1 
+      },
+    });
+
+    // hitung skore dari total pertanyaan dan jawaban yang benar
+    const score = totalQuestions > 0
+      ? Math.round((correctAnswers / totalQuestions) * 100)
+      : 0;
+
+    // Update session with score and completed status
     await session.update({
       status: "completed",
-      ended_at: new Date()
+      ended_at: new Date(),
+      score: score
+    });
+
+    // Get student info
+    const student = await User.findByPk(session.user_id, {
+      attributes: ['id', 'name']
     });
 
     res.status(200).json({
-      message: `Kuis ${session.id} berhasil diselesaikan`,
+      message: `Kuis ${quiz.title} untuk siswa ${student ? student.name : 'unknown'} berhasil diselesaikan`,
+      student_name: student ? student.name : 'unknown',
+      score: score
     });
   } catch (error) {
+    console.error("Error ending quiz:", error);
     res.status(500).json({ message: error.message });
   }
 };
