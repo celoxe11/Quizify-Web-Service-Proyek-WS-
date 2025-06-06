@@ -16,7 +16,6 @@ const {
 } = require("../utils/helpers");
 
 const opentdb = require("../services/opentdb");
-const { Session } = require("inspector/promises");
 
 const createQuiz = async (req, res) => {
   try {
