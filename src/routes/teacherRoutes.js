@@ -1,4 +1,5 @@
 const express = require("express");
+const { parseForm, saveFile, replaceQuestionImage, upload } = require("../middleware/uploadFile");
 
 const {
   createQuiz,
@@ -23,7 +24,6 @@ const {
   uploadImageLimit,
 } = require("../middleware/teacherMiddleware");
 const logActivity = require("../middleware/logActivity");
-const upload = require("../middleware/uploadFile");
 
 const router = express.Router();
 router.post(
@@ -52,8 +52,9 @@ router.post(
   "/question",
   authenticate,
   isTeacher,
-  uploadImageLimit,
-  upload('gambar_soal'),
+  parseForm('gambar_soal'),  // Parse form but don't save yet
+  uploadImageLimit, 
+  saveFile(),  // Save file only if limit check passes
   logActivity("Teacher: Create Question"),
   createQuestion
 );
@@ -61,8 +62,9 @@ router.put(
   "/question",
   authenticate,
   isTeacher,
-  uploadImageLimit,
-  upload('gambar_soal'),
+  parseForm('gambar_soal'),     // Parse form but keep file in memory
+  uploadImageLimit,             
+  replaceQuestionImage(),       // Replace existing image with new one
   logActivity("Teacher: Update Question"),
   updateQuestion
 );
