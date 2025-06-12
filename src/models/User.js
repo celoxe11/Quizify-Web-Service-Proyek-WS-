@@ -10,10 +10,6 @@ const User = sequelize.define("User", {
     type: DataTypes.STRING(100),
     allowNull: false,
   },
-  name: {
-    type: DataTypes.STRING(100),
-    allowNull: false,
-  },
   username: {
     type: DataTypes.STRING(100),
     allowNull: false,
@@ -40,7 +36,7 @@ const User = sequelize.define("User", {
     defaultValue: true,
   },
 }, {
-  tableName: "USER",
+  tableName: "User",
   timestamps: true,
   createdAt: "created_at",
   updatedAt: "updated_at",
