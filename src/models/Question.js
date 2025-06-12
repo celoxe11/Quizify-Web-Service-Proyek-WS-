@@ -37,7 +37,7 @@ const Question = sequelize.define("Question", {
     defaultValue: false,
   },
 }, {
-  tableName: "Question",
+  tableName: "question",
   timestamps: true,
   createdAt: "created_at",
   updatedAt: "updated_at",

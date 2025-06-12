@@ -29,7 +29,7 @@ const QuizSession = sequelize.define("QuizSession", {
     defaultValue: "in_progress",
   },
 }, {
-  tableName: "QuizSession",
+  tableName: "quizsession",
   timestamps: false,
 });
 

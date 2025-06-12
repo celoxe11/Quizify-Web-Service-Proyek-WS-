@@ -26,7 +26,7 @@ const QuestionAccuracy = sequelize.define("QuestionAccuracy", {
     defaultValue: 0,
   },
 }, {
-  tableName: "QuestionAccuracy",
+  tableName: "questionAccuracy",
   timestamps: true,
   createdAt: "created_at",
   updatedAt: "updated_at",

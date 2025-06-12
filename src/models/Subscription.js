@@ -14,7 +14,7 @@ const Subscription = sequelize.define("Subscription", {
     unique: true,
   },
 }, {
-  tableName: "Subscription",
+  tableName: "subscription",
   timestamps: false,
 });
 

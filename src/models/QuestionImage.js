@@ -24,7 +24,7 @@ const QuestionImage = sequelize.define("QuestionImage", {
     defaultValue: DataTypes.NOW,
   },
 }, {
-  tableName: "QuestionImage",
+  tableName: "questionimage",
   timestamps: false,
   paranoid: false,
 });

@@ -20,7 +20,7 @@ const Quiz = sequelize.define("Quiz", {
     type: DataTypes.STRING(10),
   },
 }, {
-  tableName: "Quiz",
+  tableName: "quiz",
   timestamps: true,
   createdAt: "created_at",
   updatedAt: "updated_at",

@@ -25,7 +25,7 @@ const SubmissionAnswer = sequelize.define("SubmissionAnswer", {
     defaultValue: DataTypes.NOW,
   },
 }, {
-  tableName: "SubmissionAnswer",
+  tableName: "submissionanswer",
   timestamps: false,
 });
 

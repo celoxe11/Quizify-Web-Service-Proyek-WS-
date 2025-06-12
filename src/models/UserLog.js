@@ -23,7 +23,7 @@ const UserLog = sequelize.define("UserLog", {
     defaultValue: DataTypes.NOW,
   },
 }, {
-  tableName: "UserLog",
+  tableName: "userlog",
   timestamps: false,
 });
 
