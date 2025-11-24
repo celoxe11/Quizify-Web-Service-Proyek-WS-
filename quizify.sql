@@ -117,7 +117,7 @@ CREATE TABLE `user` (
   `name` varchar(100) NOT NULL,
   `username` varchar(100) NOT NULL,
   `email` varchar(100) NOT NULL,
-  `password_hash` varchar(255) NOT NULL,
+  `firebase_uid` varchar(128) UNIQUE DEFAULT NULL,
   `role` enum('teacher','student') NOT NULL,
   `subscription_id` int NOT NULL,
   `is_active` tinyint(1) DEFAULT '1',
@@ -125,7 +125,8 @@ CREATE TABLE `user` (
   `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `username` (`username`),
-  UNIQUE KEY `email` (`email`)
+  UNIQUE KEY `email` (`email`),
+  KEY `idx_firebase_uid` (`firebase_uid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 DROP TABLE IF EXISTS `userlog`;

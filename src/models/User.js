@@ -1,45 +1,52 @@
 const { DataTypes } = require("sequelize");
 const sequelize = require("../config/db");
 
-const User = sequelize.define("User", {
-  id: {
-    type: DataTypes.STRING(10),
-    primaryKey: true,
+const User = sequelize.define(
+  "User",
+  {
+    id: {
+      type: DataTypes.STRING(10),
+      primaryKey: true,
+    },
+    name: {
+      type: DataTypes.STRING(100),
+      allowNull: false,
+    },
+    username: {
+      type: DataTypes.STRING(100),
+      allowNull: false,
+      unique: true,
+    },
+    email: {
+      type: DataTypes.STRING(100),
+      allowNull: false,
+      unique: true,
+    },
+    firebase_uid: {
+      type: DataTypes.STRING(128),
+      allowNull: true,
+      unique: true,
+    },
+    role: {
+      type: DataTypes.ENUM("teacher", "student"),
+      allowNull: false,
+    },
+    subscription_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    is_active: {
+      type: DataTypes.TINYINT,
+      allowNull: false,
+      defaultValue: 1,
+    },
   },
-  name: {
-    type: DataTypes.STRING(100),
-    allowNull: false,
-  },
-  username: {
-    type: DataTypes.STRING(100),
-    allowNull: false,
-  },
-  email: {
-    type: DataTypes.STRING(100),
-    allowNull: false,
-    unique: true,
-  },
-  password_hash: {
-    type: DataTypes.STRING(255),
-    allowNull: false,
-  },
-  role: {
-    type: DataTypes.ENUM("teacher", "student"),
-    allowNull: false,
-  },
-  subscription_id: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-  },
-  is_active: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: true,
-  },
-}, {
-  tableName: "user",
-  timestamps: true,
-  createdAt: "created_at",
-  updatedAt: "updated_at",
-});
+  {
+    tableName: "user",
+    timestamps: true,
+    createdAt: "created_at",
+    updatedAt: "updated_at",
+  }
+);
 
 module.exports = User;
