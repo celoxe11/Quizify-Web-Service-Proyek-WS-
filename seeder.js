@@ -7,17 +7,6 @@ admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
 
-// Helper to generate random 10-char ID for your schema
-function generateShortId(length = 10) {
-  const chars =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let result = "";
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-}
-
 async function seedDatabase() {
   const connection = await mysql.createConnection({
     host: process.env.DB_HOST || "localhost",
@@ -157,7 +146,7 @@ async function seedDatabase() {
     // --- 3. SYNC USERS FROM FIREBASE TO MYSQL ---
     console.log("Fetching Users from Firebase...");
     
-    const listUsersResult = await admin.auth().listUsers(1000); 
+    const listUsersResult = await admin.auth().listUsers(1000);
     const firebaseUsers = listUsersResult.users;
 
     if (firebaseUsers.length > 0) {
@@ -166,26 +155,41 @@ async function seedDatabase() {
       );
 
       const userValues = [];
+      // Counters to generate sequential IDs per role (TE001, ST001, ...)
+      // Initialize counters from existing DB values to avoid primary-key collisions
+      const [teacherRows] = await connection.query(
+        "SELECT MAX(CAST(SUBSTRING(id,3) AS UNSIGNED)) AS maxNum FROM user WHERE role = 'teacher'"
+      );
+      const [studentRows] = await connection.query(
+        "SELECT MAX(CAST(SUBSTRING(id,3) AS UNSIGNED)) AS maxNum FROM user WHERE role = 'student'"
+      );
+      const teacherMax = (teacherRows && teacherRows[0] && teacherRows[0].maxNum) ? teacherRows[0].maxNum : 0;
+      const studentMax = (studentRows && studentRows[0] && studentRows[0].maxNum) ? studentRows[0].maxNum : 0;
+      const counters = { teacher: teacherMax + 1, student: studentMax + 1 };
 
       for (const fbUser of firebaseUsers) {
         // DATA MAPPING LOGIC
-        const shortId = generateShortId(10); // Generate your VARCHAR(10)
         const name = fbUser.displayName || "Anonymous"; // Handle missing names
         const email = fbUser.email;
 
         // Generate a username from email if missing (e.g., johndoe from johndoe@gmail.com)
         const username = email
-          ? email.split("@")[0] + "_" + generateShortId(4)
-          : "user_" + shortId;
+          ? email.split("@")[0] + "_" + Math.random().toString(36).substring(2, 6)
+          : "user_" + Math.random().toString(36).substring(2, 8);
 
-        // Default Role: You might want to check Custom Claims here, strictly defaulting to 'student' for now
-        const role = "student";
+        // Determine role from Firebase custom claims if available, otherwise default to 'student'
+        const role = fbUser.customClaims && fbUser.customClaims.role === 'teacher' ? 'teacher' : 'student';
+
+        // Generate ID like TE001 or ST001 using counters
+        const prefix = role === 'teacher' ? 'TE' : 'ST';
+        const idNumber = counters[role]++;
+        const generatedId = `${prefix}${idNumber.toString().padStart(3, '0')}`;
 
         // Default Subscription: 1 (Free)
         const subscriptionId = 1;
 
         userValues.push([
-          shortId,
+          generatedId,
           name,
           username,
           email,

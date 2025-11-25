@@ -10,6 +10,13 @@ const imageRoutes = require("./src/routes/imageRoutes");
 const userRoutes = require("./src/routes/userRoutes");
 const cors = require("cors");
 
+const admin = require("firebase-admin");
+const serviceAccount = require("./serviceAccountKey.json"); 
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());

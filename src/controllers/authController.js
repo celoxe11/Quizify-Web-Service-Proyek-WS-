@@ -57,17 +57,18 @@ const register = async (req, res) => {
     }
     res
       .status(500)
-      .json({ message: "Internal server error", error: error.message });
+      .json({ message: `Internal server error - ${error.message}` });
   }
 };
 
 // 2. ME: get users MySQL data by firebase_uid
 // Replaces 'getUserByFirebaseUid'
+// Bisa buat ambil data profile setelah login
 const me = async (req, res) => {
   try {
     // The firebase_uid comes from the route parameter or the verified token (req.user.uid)
     // It is safer to use req.user.uid from the middleware if available, but params work too.
-    const { firebaseUid } = req.params;
+    const firebaseUid = req.user.uid;
 
     const user = await User.findOne({ where: { firebase_uid: firebaseUid } });
 
@@ -86,7 +87,7 @@ const me = async (req, res) => {
     console.error("Login Fetch Error:", error);
     res
       .status(500)
-      .json({ message: "Internal server error", error: error.message });
+      .json({ message: `Internal server error - ${error.message}` });
   }
 };
 

@@ -14,21 +14,22 @@ const updateProfile = async (req, res) => {
 
     // 2. Check if trying to update username, ensure it's unique
     if (username && username !== user.username) {
-        const existing = await User.findOne({ where: { username } });
-        if (existing) return res.status(400).json({ message: "Username already taken" });
+      const existing = await User.findOne({ where: { username } });
+      if (existing)
+        return res.status(400).json({ message: "Username already taken" });
     }
 
     // 3. Update
     user.name = name || user.name;
     user.username = username || user.username;
-    
+
     await user.save();
 
     res.json({ message: "Profile updated successfully", user });
-
   } catch (error) {
-    console.error("Update Error:", error);
-    res.status(500).json({ message: "Failed to update profile", error: error.message });
+    res
+      .status(500)
+      .json({ message: `Failed to update profile - ${error.message}` });
   }
 };
 
