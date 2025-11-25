@@ -1,15 +1,35 @@
-const mysql = require('mysql2/promise');
+const admin = require("firebase-admin");
+const mysql = require("mysql2/promise");
+const serviceAccount = require("./serviceAccountKey.json"); 
+
+// 1. Initialize Firebase
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
+// Helper to generate random 10-char ID for your schema
+function generateShortId(length = 10) {
+  const chars =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let result = "";
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
 
 async function seedDatabase() {
   const connection = await mysql.createConnection({
-    host: 'localhost',
-    user: 'root',
-    password: '', // sesuaikan
-    multipleStatements: true
+    host: process.env.DB_HOST || "localhost",
+    user: process.env.DB_USER || "root",
+    password: process.env.DB_PASS || "", // sesuaikan
+    multipleStatements: true,
   });
 
   try {
-    await connection.query(`DROP DATABASE IF EXISTS quizify; CREATE DATABASE quizify; USE quizify;`);
+    await connection.query(
+      `DROP DATABASE IF EXISTS quizify; CREATE DATABASE quizify; USE quizify;`
+    );
 
     const schema = `
       DROP TABLE IF EXISTS submissionanswer;
@@ -127,8 +147,66 @@ async function seedDatabase() {
     await connection.query(schema);
 
     console.log("Database tables created successfully!");
+
+    // --- 2. SEED SUBSCRIPTIONS ---
+    console.log("Seeding Reference Data (Subscriptions)...");
+    await connection.query(
+      `INSERT INTO subscription (status) VALUES ('Free'), ('Premium')`
+    );
+
+    // --- 3. SYNC USERS FROM FIREBASE TO MYSQL ---
+    console.log("Fetching Users from Firebase...");
+    
+    const listUsersResult = await admin.auth().listUsers(1000); 
+    const firebaseUsers = listUsersResult.users;
+
+    if (firebaseUsers.length > 0) {
+      console.log(
+        `   Found ${firebaseUsers.length} users in Firebase. Syncing to MySQL...`
+      );
+
+      const userValues = [];
+
+      for (const fbUser of firebaseUsers) {
+        // DATA MAPPING LOGIC
+        const shortId = generateShortId(10); // Generate your VARCHAR(10)
+        const name = fbUser.displayName || "Anonymous"; // Handle missing names
+        const email = fbUser.email;
+
+        // Generate a username from email if missing (e.g., johndoe from johndoe@gmail.com)
+        const username = email
+          ? email.split("@")[0] + "_" + generateShortId(4)
+          : "user_" + shortId;
+
+        // Default Role: You might want to check Custom Claims here, strictly defaulting to 'student' for now
+        const role = "student";
+
+        // Default Subscription: 1 (Free)
+        const subscriptionId = 1;
+
+        userValues.push([
+          shortId,
+          name,
+          username,
+          email,
+          fbUser.uid, // The Firebase UID goes into firebase_uid column
+          role,
+          subscriptionId,
+        ]);
+      }
+
+      const insertQuery = `
+            INSERT INTO user (id, name, username, email, firebase_uid, role, subscription_id) 
+            VALUES ?
+        `;
+
+      await connection.query(insertQuery, [userValues]);
+      console.log("   Users synced successfully!");
+    } else {
+      console.log("   No users found in Firebase.");
+    }
   } catch (err) {
-    console.error('Failed to setup database:', err);
+    console.error("Failed to setup database:", err);
   } finally {
     await connection.end();
   }

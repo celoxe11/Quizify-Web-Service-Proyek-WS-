@@ -1,138 +1,96 @@
-const bcrypt = require('bcryptjs');
-const jwt = require("jsonwebtoken");
-const Joi = require("joi");
-const User = require('../models/User');
+const { User } = require("../models");
 
+// 1. REGISTER: Called once when the user signs up
+// Replaces your old 'createUser' and old 'register'
 const register = async (req, res) => {
-  const schema = Joi.object({
-    name: Joi.string().required(),
-    username: Joi.string().required(),
-    email: Joi.string().email().required(),
-    password: Joi.string().min(8).required().messages({
-      'string.min': 'Password minimal 8 huruf'
-    }),
-    role: Joi.string().valid('teacher', 'student').required()
-  });
-
-  const { error, value } = schema.validate(req.body);
-  if (error) return res.status(400).json({ message: error.message });
-
-  const { name, username, email, password, role } = value;
-
   try {
-    const existingEmail = await User.findOne({ where: { email } });
-    if (existingEmail) return res.status(400).json({ message: 'Email sudah digunakan!' });
+    const { name, username, email, firebase_uid, role } = req.body;
 
+    // 1. Check for duplicates (Username)
+    // Note: Email is already checked by Firebase, but checking here is safe too.
     const existingUsername = await User.findOne({ where: { username } });
-    if (existingUsername) return res.status(400).json({ message: 'Username sudah digunakan!' });
+    if (existingUsername) {
+      return res.status(400).json({ message: "Username sudah digunakan!" });
+    }
 
+    // 2. ID Generation Logic (TE001, ST001)
     const lastUser = await User.findOne({
-      order: [['id', 'DESC']],
-      where: { role }
+      order: [["created_at", "DESC"]],
+      where: { role },
     });
 
-    let number = lastUser ? parseInt(lastUser.id.slice(2)) + 1 : 1;
-    const prefix = role === 'teacher' ? 'TE' : 'ST';
-    const newID = `${prefix}${number.toString().padStart(3, '0')}`;
+    let number = 1;
+    if (lastUser) {
+      // Extract number from ID (e.g., TE005 -> 5)
+      const lastIdNum = parseInt(lastUser.id.slice(2));
+      if (!isNaN(lastIdNum)) {
+        number = lastIdNum + 1;
+      }
+    }
 
+    const prefix = role === "teacher" ? "TE" : "ST";
+    const newID = `${prefix}${number.toString().padStart(3, "0")}`;
+
+    // 3. Create User in MySQL
     const newUser = await User.create({
       id: newID,
       name,
       username,
       email,
-      password_hash: await bcrypt.hash(password, 10),
+      firebase_uid, // Links to Firebase
       role,
-      subscription_id: 1, // Default: Free
+      subscription_id: 1, // Default Free
+      is_active: true,
     });
 
-    return res.status(201).json({
-      message: 'Registrasi berhasil! Silakan login.',
-      user: {
-        id: newUser.id,
-        name: newUser.name,
-        username: newUser.username,
-        email: newUser.email,
-        role: newUser.role
-      }
+    res.status(201).json({
+      message: "User registered successfully",
+      user: newUser,
     });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: err.message });
+  } catch (error) {
+    console.error("Register Error:", error);
+    if (error.name === "SequelizeUniqueConstraintError") {
+      return res.status(400).json({
+        message: "Data duplicate detected",
+        details: error.errors.map((e) => e.message),
+      });
+    }
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
   }
 };
 
-const login = async (req, res) => {
-  const schema = Joi.object({
-    username: Joi.string().allow('', null),
-    email: Joi.string().email().allow('', null), 
-    password: Joi.string().required().messages({
-      'any.required': 'Password wajib diisi'
-    })
-  }).custom((value, helpers) => {
-    if (!value.username && !value.email) {
-      return helpers.message('Silakan isi username atau email');
-    }
-    return value;
-  });
-
-  const { error, value } = schema.validate(req.body);
-  if (error) return res.status(400).json({ message: error.message });
-
-  const { username, email, password } = value;
-
+// 2. ME: get users MySQL data by firebase_uid
+// Replaces 'getUserByFirebaseUid'
+const me = async (req, res) => {
   try {
+    // The firebase_uid comes from the route parameter or the verified token (req.user.uid)
+    // It is safer to use req.user.uid from the middleware if available, but params work too.
+    const { firebaseUid } = req.params;
 
-    if(username === "admin" && password === "admin"){
-        const token = jwt.sign(
-            { id: "admin", role: "admin" },
-            process.env.ACCESS_TOKEN_SECRET,
-            { expiresIn: '1d' }
-        );
-        return res.status(200).json({
-            message: 'Login berhasil',
-            token,
-        })
-    }
-    // Cari user berdasarkan username ATAU email
-    const user = await User.findOne({
-      where: username ? { username } : { email }
-    });
+    const user = await User.findOne({ where: { firebase_uid: firebaseUid } });
 
-    if (!user ) {
-      return res.status(401).json({ message: 'User tidak ditemukan' }); // Unauthorized
+    if (!user) {
+      return res
+        .status(404)
+        .json({ message: "User not found in database. Please register." });
     }
 
-    const validPass = await bcrypt.compare(password, user.password_hash);
-    if (!validPass) {
-      return res.status(403).json({ message: 'Password salah' }); // Forbidden
+    if (!user.is_active) {
+      return res.status(403).json({ message: "Account is inactive" });
     }
 
-    const token = jwt.sign(
-      { id: user.id, role: user.role },
-      process.env.ACCESS_TOKEN_SECRET,
-      { expiresIn: '1d' }
-    );
-
-    return res.status(200).json({
-      message: 'Login berhasil',
-      token,
-      user: {
-        id: user.id,
-        name: user.name,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-      }
-    });
-
-  } catch (err) {
-    console.error('Login error:', err);
-    return res.status(500).json({ message: err.message });
+    res.json(user);
+  } catch (error) {
+    console.error("Login Fetch Error:", error);
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
   }
 };
-
 
 module.exports = {
-    login,
-    register,
+  register,
+  me,
 };

@@ -1,49 +1,37 @@
 const { User } = require("../models");
 
-const createUser = async (req, res) => {
+// Update Profile (Name, Username, etc.)
+const updateProfile = async (req, res) => {
   try {
-    const { id, name, username, email, firebase_uid, role, subscription_id } = req.body;
+    const { id } = req.params; // The MySQL User ID (e.g., ST001)
+    const { name, username } = req.body;
 
-    const user = await User.create({
-      id,
-      name,
-      username,
-      email,
-      firebase_uid,
-      role,
-      subscription_id,
-    });
-
-    res.status(201).json(user);
-  } catch (error) {
-    if (error.name === "SequelizeUniqueConstraintError") {
-      return res.status(400).json({ error: "Unique constraint error", details: error.errors.map(e => e.message) });
-    }
-    res.status(500).json({ error: error.message });
-  }
-};
-
-const getUserByFirebaseUid = async (req, res) => {
-  try {
-    const user = await User.findOne({ where: { firebase_uid: req.params.firebaseUid } });
-
+    // 1. Find User
+    const user = await User.findByPk(id);
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ message: "User not found" });
     }
 
-    res.json(user);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
+    // 2. Check if trying to update username, ensure it's unique
+    if (username && username !== user.username) {
+        const existing = await User.findOne({ where: { username } });
+        if (existing) return res.status(400).json({ message: "Username already taken" });
+    }
 
-const generateUniqueUserId = async (req, res) => {
-  const id = "U" + Date.now().toString().slice(-9);
-  res.json({ id });
+    // 3. Update
+    user.name = name || user.name;
+    user.username = username || user.username;
+    
+    await user.save();
+
+    res.json({ message: "Profile updated successfully", user });
+
+  } catch (error) {
+    console.error("Update Error:", error);
+    res.status(500).json({ message: "Failed to update profile", error: error.message });
+  }
 };
 
 module.exports = {
-  createUser,
-  getUserByFirebaseUid,
-  generateUniqueUserId,
+  updateProfile,
 };

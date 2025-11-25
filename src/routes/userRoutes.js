@@ -1,13 +1,9 @@
 const express = require("express");
 const router = express.Router();
 const {
-  createUser,
-  getUserByFirebaseUid,
-  generateUniqueUserId,
+  updateProfile
 } = require("../controllers/userController");
 
-router.post("/", createUser);
-router.get("/firebase/:firebaseUid", getUserByFirebaseUid);
-router.get("/generate-id", generateUniqueUserId);
+router.put("/profile/:id", updateProfile);
 
 module.exports = router;
