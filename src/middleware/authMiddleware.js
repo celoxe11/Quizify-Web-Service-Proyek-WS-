@@ -1,4 +1,4 @@
-const jwt = require("jsonwebtoken");
+const admin = require("firebase-admin");
 const User = require("../models/User");
 const dotenv = require("dotenv");
 const axios = require('axios');
@@ -19,43 +19,52 @@ const sendHttpCatImage = async (res, statusCode) => {
 };
 
 const authenticate = async (req, res, next) => {
-  const token = req.header("x-access-token");
+  const token = req.headers.authorization?.split(" ")[1];
 
   if (!token) {
-    return sendHttpCatImage(res, 401);  // Ganti json dengan image http.cat 401
+    return sendHttpCatImage(res, 401);  // No token provided
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+    // Verify the token with Firebase Admin SDK
+    const decodedToken = await admin.auth().verifyIdToken(token);
 
-    if (decoded.role === "admin") {
-      if (
-        decoded.username === process.env.ADMIN_USERNAME &&
-        decoded.password === process.env.ADMIN_PASSWORD
-      ) {
-        req.user = {
-          id: "admin",
-          username: decoded.username,
-          role: "admin",
-        };
-        return next();
-      } else {
-        return sendHttpCatImage(res, 403);  // Ganti json dengan image http.cat 403
-      }
+    // Get the role from custom claims
+    const role = decodedToken.role;
+
+    // Handle admin case if you still need it
+    if (role === "admin") {
+      req.user = {
+        uid: decodedToken.uid,
+        email: decodedToken.email,
+        role: "admin",
+      };
+      return next();
     }
 
-    const userId = decoded.id;
-    const user = await User.findByPk(userId);
+    // For regular users (teacher/student), fetch from MySQL using firebase_uid
+    const user = await User.findOne({ where: { firebase_uid: decodedToken.uid } });
 
     if (!user) {
-      return sendHttpCatImage(res, 404);  // Ganti json dengan image http.cat 404
+      return sendHttpCatImage(res, 404);  // User not found in database
     }
 
-    req.user = user;
+    if (!user.is_active) {
+      return sendHttpCatImage(res, 403);  // Account is inactive
+    }
+
+    // Attach both Firebase token data and MySQL user data to request
+    req.user = {
+      uid: decodedToken.uid,
+      email: decodedToken.email,
+      role: user.role,
+      dbUser: user,  // Full MySQL user object
+    };
+
     next();
   } catch (error) {
-    console.error("Token verification error:", error.message);
-    return sendHttpCatImage(res, 400);  // Ganti json dengan image http.cat 400
+    console.error("Firebase token verification error:", error.message);
+    return sendHttpCatImage(res, 403);  // Unauthorized
   }
 };
 
