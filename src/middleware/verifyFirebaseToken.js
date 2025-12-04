@@ -9,6 +9,7 @@ const verifyToken = async (req, res, next) => {
   }
 
   try {
+    console.log("============================");
     console.log("Verifying token...");
     console.log("Token length:", token.length);
 

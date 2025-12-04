@@ -174,7 +174,7 @@ async function seedDatabase() {
 
         // Generate a username from email if missing (e.g., johndoe from johndoe@gmail.com)
         const username = email
-          ? email.split("@")[0] + "_" + Math.random().toString(36).substring(2, 6)
+          ? email.split("@")[0]
           : "user_" + Math.random().toString(36).substring(2, 8);
 
         // Determine role from Firebase custom claims if available, otherwise default to 'student'
