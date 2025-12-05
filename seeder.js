@@ -43,7 +43,7 @@ async function seedDatabase() {
         username VARCHAR(100) NOT NULL,
         email VARCHAR(100) NOT NULL,
         firebase_uid VARCHAR(128) UNIQUE DEFAULT NULL,
-        role ENUM('teacher','student') NOT NULL,
+        role ENUM('teacher','student', "admin") NOT NULL,
         subscription_id INT NOT NULL,
         is_active TINYINT(1) DEFAULT '1',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -168,6 +168,7 @@ async function seedDatabase() {
       const counters = { teacher: teacherMax + 1, student: studentMax + 1 };
 
       for (const fbUser of firebaseUsers) {
+
         // DATA MAPPING LOGIC
         const name = fbUser.displayName || "Anonymous"; // Handle missing names
         const email = fbUser.email;
@@ -176,6 +177,23 @@ async function seedDatabase() {
         const username = email
           ? email.split("@")[0]
           : "user_" + Math.random().toString(36).substring(2, 8);
+
+        if(username == "admin") {
+          let adminName = "Administrator";
+          const role = "admin";
+          const generatedId = "AD001";
+          const subscriptionId = 1;
+          userValues.push([
+            generatedId,
+            adminName,
+            username,
+            email,
+            fbUser.uid,
+            role,
+            subscriptionId,
+          ]);
+          continue;
+        }
 
         // Determine role from Firebase custom claims if available, otherwise default to 'student'
         const role = fbUser.customClaims && fbUser.customClaims.role === 'teacher' ? 'teacher' : 'student';

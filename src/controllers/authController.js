@@ -29,7 +29,7 @@ const register = async (req, res) => {
       }
     }
 
-    const prefix = role === "teacher" ? "TE" : "ST";
+    const prefix = role === "teacher" ? "TE" : role === "student" ? "ST" : "AD";
     const newID = `${prefix}${number.toString().padStart(3, "0")}`;
 
     // 3. Create User in MySQL
