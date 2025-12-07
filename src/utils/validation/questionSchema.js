@@ -30,8 +30,8 @@ const quizExistAndByUser = async (value, helpers) => {
     // We can't access req.user here directly, so we'll just check if quiz exists
     const quizFound = await Quiz.findOne({
       where: {
-        id: value
-      }
+        id: value,
+      },
     });
 
     if (!quizFound) {
@@ -48,10 +48,6 @@ const questionSchema = Joi.object({
   quiz_id: Joi.string().required().external(quizExistAndByUser).messages({
     "any.required": "Quiz ID harus diisi",
     "string.empty": "Quiz ID tidak boleh kosong",
-  }),
-  category: Joi.string().required().messages({
-    "any.required": "Category harus diisi",
-    "string.empty": "Category tidak boleh kosong",
   }),
   type: Joi.string().valid("multiple", "boolean").required().messages({
     "any.required": "Type harus diisi",

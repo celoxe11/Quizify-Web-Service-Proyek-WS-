@@ -22,12 +22,11 @@ DROP TABLE IF EXISTS `question`;
 CREATE TABLE `question` (
   `id` varchar(10) NOT NULL,
   `quiz_id` varchar(10) DEFAULT NULL,
-  `category` varchar(100) DEFAULT NULL,
   `type` enum('multiple','boolean') NOT NULL,
   `difficulty` enum('easy','medium','hard') NOT NULL,
   `question_text` text NOT NULL,
   `correct_answer` text NOT NULL,
-  `incorrect_answers` json NOT NULL,
+  `options` json NOT NULL,
   `is_generated` tinyint(1) DEFAULT '0',
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

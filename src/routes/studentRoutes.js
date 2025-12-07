@@ -8,7 +8,7 @@ const {
   submitQuiz,
   getGenerateQuestion,
   getSessionHistory,
-  getQuizReview
+  getQuizReview,
 } = require("../controllers/studentController");
 
 const { authenticate, isStudent } = require("../middleware/authMiddleware");

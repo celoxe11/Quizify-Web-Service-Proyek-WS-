@@ -7,7 +7,7 @@ const {
   QuestionImage,
   QuizSession,
   User,
-  SubmissionAnswer
+  SubmissionAnswer,
 } = require("../models");
 const {
   parseIncorrectAnswers,
@@ -85,13 +85,15 @@ const createQuestion = async (req, res) => {
 
     const {
       quiz_id,
-      category,
       type,
       difficulty,
       question_text,
       correct_answer,
       incorrect_answers,
     } = req.body;
+
+    // Combine correct_answer and incorrect_answers into options
+    const options = [correct_answer, ...incorrect_answers];
 
     // Check quiz ownership
     const ownershipCheck = await checkQuizOwnership(Quiz, quiz_id, req.user.id);
@@ -112,12 +114,11 @@ const createQuestion = async (req, res) => {
     const question = await Question.create({
       id,
       quiz_id,
-      category,
       type,
       difficulty,
       question_text,
       correct_answer,
-      incorrect_answers,
+      options,
       is_generated: 0,
     });
 
@@ -134,12 +135,11 @@ const createQuestion = async (req, res) => {
     const formattedQuestion = {
       id: question.id,
       quiz_id: question.quiz_id,
-      category: question.category,
       type: question.type,
       difficulty: question.difficulty,
       question_text: question.question_text,
       correct_answer: question.correct_answer,
-      incorrect_answers: question.incorrect_answers,
+      options: question.options,
       image_url: formatImageUrl(req, imagePath),
     };
 
@@ -170,13 +170,15 @@ const updateQuestion = async (req, res) => {
 
     const {
       question_id,
-      category,
       type,
       difficulty,
       question_text,
       correct_answer,
       incorrect_answers,
     } = req.body;
+
+    // Combine correct_answer and incorrect_answers into options
+    const options = [correct_answer, ...incorrect_answers];
 
     const question = await Question.findOne({
       where: { id: question_id },
@@ -205,12 +207,11 @@ const updateQuestion = async (req, res) => {
 
     await Question.update(
       {
-        category,
         type,
         difficulty,
         question_text,
         correct_answer,
-        incorrect_answers,
+        options,
         is_generated: 0,
       },
       {
@@ -246,12 +247,11 @@ const updateQuestion = async (req, res) => {
     const formattedQuestion = {
       id: updatedQuestion.id,
       quiz_id: updatedQuestion.quiz_id,
-      category: updatedQuestion.category,
       type: updatedQuestion.type,
       difficulty: updatedQuestion.difficulty,
       question_text: updatedQuestion.question_text,
       correct_answer: updatedQuestion.correct_answer,
-      incorrect_answers: updatedQuestion.incorrect_answers,
+      options: updatedQuestion.options,
       image_url: formatImageUrl(req, imagePath),
     };
 
@@ -314,27 +314,28 @@ const generateQuestion = async (req, res) => {
       questionCount++;
       const id = "Q" + questionCount.toString().padStart(3, "0");
 
+      // Combine correct_answer and incorrect_answers into options
+      const options = [question.correct_answer, ...question.incorrect_answers];
+
       const newQuestion = await Question.create({
         id,
         quiz_id,
-        category: question.category,
         type: question.type,
         difficulty: question.difficulty,
         question_text: question.question,
         correct_answer: question.correct_answer,
-        incorrect_answers: question.incorrect_answers,
+        options,
         is_generated: 1,
       });
 
       savedQuestions.push({
         id: newQuestion.id,
         quiz_id: newQuestion.quiz_id,
-        category: newQuestion.category,
         type: newQuestion.type,
         difficulty: newQuestion.difficulty,
         question_text: newQuestion.question_text,
         correct_answer: newQuestion.correct_answer,
-        incorrect_answers: newQuestion.incorrect_answers,
+        options: newQuestion.options,
       });
     }
 
@@ -468,12 +469,11 @@ const getQuizDetail = async (req, res) => {
       where: { quiz_id },
       attributes: [
         "id",
-        "category",
         "type",
         "difficulty",
         "question_text",
         "correct_answer",
-        "incorrect_answers",
+        "options",
       ],
     });
 
@@ -563,20 +563,22 @@ const getStudentsAnswers = async (req, res) => {
     });
 
     if (!sessions || sessions.length === 0) {
-      return res.status(404).json({ message: "Tidak ada sesi quiz yang ditemukan" });
+      return res
+        .status(404)
+        .json({ message: "Tidak ada sesi quiz yang ditemukan" });
     }
 
     // Get answers for all sessions
     const answers = await SubmissionAnswer.findAll({
       where: {
-        quiz_session_id: sessions.map(session => session.id)
+        quiz_session_id: sessions.map((session) => session.id),
       },
     });
 
-    res.status(200).json({ 
+    res.status(200).json({
       message: "Berhasil mendapatkan jawaban siswa",
       sessions: sessions,
-      answers: answers 
+      answers: answers,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -597,41 +599,45 @@ const getQuizAccuracy = async (req, res) => {
     // Get all questions for this quiz
     const questions = await Question.findAll({
       where: { quiz_id },
-      attributes: ['id', 'question_text']
+      attributes: ["id", "question_text"],
     });
 
     if (questions.length === 0) {
-      return res.status(404).json({ message: "Tidak ada pertanyaan ditemukan untuk kuis ini" });
+      return res
+        .status(404)
+        .json({ message: "Tidak ada pertanyaan ditemukan untuk kuis ini" });
     }
 
     // cari quiz session yang selesai
     const quizSessions = await QuizSession.findAll({
-      where: { quiz_id, status: 'completed' },
-      attributes: ['id']
+      where: { quiz_id, status: "completed" },
+      attributes: ["id"],
     });
 
     if (quizSessions.length === 0) {
-      return res.status(404).json({ message: "Tidak ada sesi kuis yang selesai ditemukan" });
+      return res
+        .status(404)
+        .json({ message: "Tidak ada sesi kuis yang selesai ditemukan" });
     }
 
     // jawaban quiz
     const submissionAnswers = await SubmissionAnswer.findAll({
       where: {
-        quiz_session_id: quizSessions.map(session => session.id)
+        quiz_session_id: quizSessions.map((session) => session.id),
       },
-      attributes: ['question_id', 'is_correct']
+      attributes: ["question_id", "is_correct"],
     });
 
     // hitung statistik untuk setiap pertanyaan
-    const questionStats = questions.map(question => {
+    const questionStats = questions.map((question) => {
       //ambil jawaban dari quiz yg dicari
       const questionAnswers = submissionAnswers.filter(
-        answer => answer.question_id === question.id
+        (answer) => answer.question_id === question.id
       );
-      
+
       const total_answered = questionAnswers.length;
       const correct_answers = questionAnswers.filter(
-        answer => answer.is_correct
+        (answer) => answer.is_correct
       ).length;
 
       //hitung berapa yg salah
@@ -641,14 +647,13 @@ const getQuizAccuracy = async (req, res) => {
       let accuracy, mean;
       if (total_answered > 0) {
         accuracy = Math.round((correct_answers / total_answered) * 100);
-        
-      //rata-rata yang jawab benar
-        mean = correct_answers / total_answered
+
+        //rata-rata yang jawab benar
+        mean = correct_answers / total_answered;
       } else {
         accuracy = 0;
-        mean = 0
+        mean = 0;
       }
-
 
       return {
         question_id: question.id,
@@ -657,13 +662,13 @@ const getQuizAccuracy = async (req, res) => {
         correct_answers,
         incorrect_answers,
         mean,
-        accuracy
+        accuracy,
       };
     });
 
     res.status(200).json({
       message: `Berhasil mendapatkan statistik akurasi kuis ${ownershipCheck.quiz.title}`,
-      question_stats: questionStats
+      question_stats: questionStats,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -675,7 +680,7 @@ const subscribe = async (req, res) => {
     const userId = req.user.id;
 
     const user = await User.findOne({
-      where: { id: userId }
+      where: { id: userId },
     });
 
     if (!user) {
@@ -683,23 +688,22 @@ const subscribe = async (req, res) => {
     }
 
     if (user.subscription_id === 2) {
-      return res.status(200).json({ message: "Guru sudah memiliki subscription!" });
+      return res
+        .status(200)
+        .json({ message: "Guru sudah memiliki subscription!" });
     }
 
     // Update user's subscription to premium
-    await User.update(
-      { subscription_id: 2 },
-      { where: { id: userId } }
-    );
+    await User.update({ subscription_id: 2 }, { where: { id: userId } });
 
-    res.status(200).json({ 
+    res.status(200).json({
       message: `Guru ${user.name} Berhasil mengupgrade subscription ke premium`,
       user: {
         id: user.id,
         name: user.name,
         email: user.email,
-        status: "Subscribed"
-      }
+        status: "Subscribed",
+      },
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -711,7 +715,7 @@ const unsubscribe = async (req, res) => {
     const userId = req.user.id;
 
     const user = await User.findOne({
-      where: { id: userId }
+      where: { id: userId },
     });
 
     if (!user) {
@@ -719,23 +723,22 @@ const unsubscribe = async (req, res) => {
     }
 
     if (user.subscription_id === 1) {
-      return res.status(200).json({ message: "Guru sudah memiliki subscription free!" });
+      return res
+        .status(200)
+        .json({ message: "Guru sudah memiliki subscription free!" });
     }
 
     // Update user's subscription to free
-    await User.update(
-      { subscription_id: 1 },
-      { where: { id: userId } }
-    );
+    await User.update({ subscription_id: 1 }, { where: { id: userId } });
 
-    res.status(200).json({ 
+    res.status(200).json({
       message: `Guru ${user.name} Berhasil membatalkan subscription kembali ke free`,
       user: {
         id: user.id,
         name: user.name,
         email: user.email,
-        status: "Not subscribed"
-      }
+        status: "Not subscribed",
+      },
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -751,24 +754,28 @@ const endQuiz = async (req, res) => {
     const session = await QuizSession.findOne({
       where: {
         id: session_id,
-        status: "in_progress"
-      }
+        status: "in_progress",
+      },
     });
 
     if (!session) {
-      return res.status(404).json({ message: "Sesi kuis tidak ditemukan atau sudah selesai" });
+      return res
+        .status(404)
+        .json({ message: "Sesi kuis tidak ditemukan atau sudah selesai" });
     }
 
     //cek apakah quiz dari session ini memang punya teacher
     const quiz = await Quiz.findOne({
       where: {
         id: session.quiz_id,
-        created_by: teacher_id
-      }
+        created_by: teacher_id,
+      },
     });
 
     if (!quiz) {
-      return res.status(403).json({ message: "Anda tidak memiliki akses ke kuis ini" });
+      return res
+        .status(403)
+        .json({ message: "Anda tidak memiliki akses ke kuis ini" });
     }
 
     // hitung total pertanyaan pada kuiz
@@ -778,33 +785,36 @@ const endQuiz = async (req, res) => {
 
     // hitung total jawaban yang benar
     const correctAnswers = await SubmissionAnswer.count({
-      where: { 
-        quiz_session_id: session.id, 
-        is_correct: 1 
+      where: {
+        quiz_session_id: session.id,
+        is_correct: 1,
       },
     });
 
     // hitung skore dari total pertanyaan dan jawaban yang benar
-    const score = totalQuestions > 0
-      ? Math.round((correctAnswers / totalQuestions) * 100)
-      : 0;
+    const score =
+      totalQuestions > 0
+        ? Math.round((correctAnswers / totalQuestions) * 100)
+        : 0;
 
     // Update session with score and completed status
     await session.update({
       status: "completed",
       ended_at: new Date(),
-      score: score
+      score: score,
     });
 
     // Get student info
     const student = await User.findByPk(session.user_id, {
-      attributes: ['id', 'name']
+      attributes: ["id", "name"],
     });
 
     res.status(200).json({
-      message: `Kuis ${quiz.title} untuk siswa ${student ? student.name : 'unknown'} berhasil diselesaikan`,
-      student_name: student ? student.name : 'unknown',
-      score: score
+      message: `Kuis ${quiz.title} untuk siswa ${
+        student ? student.name : "unknown"
+      } berhasil diselesaikan`,
+      student_name: student ? student.name : "unknown",
+      score: score,
     });
   } catch (error) {
     console.error("Error ending quiz:", error);

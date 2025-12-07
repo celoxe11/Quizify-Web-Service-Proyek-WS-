@@ -38,10 +38,6 @@ const updateQuestionSchema = Joi.object({
     "any.required": "Question ID harus diisi",
     "string.empty": "Question ID tidak boleh kosong",
   }),
-  category: Joi.string().required().messages({
-    "any.required": "Category harus diisi",
-    "string.empty": "Category tidak boleh kosong",
-  }),
   type: Joi.string().valid("multiple", "boolean").required().messages({
     "any.required": "Type harus diisi",
     "string.empty": "Type tidak boleh kosong",
