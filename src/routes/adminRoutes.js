@@ -23,6 +23,7 @@ const {
   endQuiz,
   getStudentsAnswers,
   getQuizAccuracy,
+  getAllQuizzes,
 } = require("../controllers/adminController");
 
 const logActivity = require("../middleware/logActivity");
@@ -36,6 +37,13 @@ router.get(
   // logActivity("Admin View Log Access"),
   // isAdmin,
   getAllQuestions
+);
+router.get(
+  "/quizzes",
+  // authenticate,
+  // logActivity("Admin View Log Access"),
+  // isAdmin,
+  getAllQuizzes
 );
 router.get(
   "/logaccess",

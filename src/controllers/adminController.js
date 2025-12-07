@@ -2,7 +2,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const Joi = require("joi");
 
-const {User, Subscription, UserLog, Question} = require("../models/index");
+const {User, Subscription, UserLog, Question, Quiz} = require("../models/index");
 
 // Ambil log aktivitas user (dengan relasi ke User)
 const getLog = async (req, res) => {
@@ -159,6 +159,15 @@ const getAllQuestions = async (req, res) => {
     return res.status(500).json({ message: error.message });
   }
 }
+
+const getAllQuizzes = async (req, res) => {
+  try {
+    const quizzes = await Quiz.findAll();
+    return res.status(200).json(quizzes);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
 
 const createQuestion = async (req, res) => {
   try {
@@ -917,6 +926,7 @@ module.exports = {
   createTierList,
   getTierList,
   getAllQuestions,
+  getAllQuizzes,
   createQuestion,
   updateQuestion,
   generateQuestion,
