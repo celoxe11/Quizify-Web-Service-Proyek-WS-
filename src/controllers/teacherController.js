@@ -8,289 +8,178 @@ const {
   QuizSession,
   User,
   SubmissionAnswer,
+  sequelize,
 } = require("../models");
 const {
-  parseIncorrectAnswers,
   checkQuizOwnership,
   formatImageUrl,
 } = require("../utils/helpers");
 
 const opentdb = require("../services/opentdb");
 
-const createQuiz = async (req, res) => {
+/**
+ * Save Quiz with Questions
+ * Creates a new quiz OR updates an existing quiz with all its questions in a single transaction
+ * - If quiz_id is NOT provided: Creates a new quiz with questions
+ * - If quiz_id IS provided: Updates the quiz and replaces all questions
+ */
+const saveQuizWithQuestions = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  
   try {
-    const { error, value } = teacherSchema.quizCreateSchema.validate(req.body);
-    if (error)
+    const { error, value } = teacherSchema.saveQuizWithQuestionsSchema.validate(req.body);
+    if (error) {
+      await transaction.rollback();
       return res.status(400).json({ message: error.details[0].message });
+    }
 
-    const { title, description, quiz_code } = value;
+    const { quiz_id, title, description, quiz_code, questions } = value;
     const desc = description || "";
+    const userId = req.user.id;
 
-    const allQuiz = await Quiz.findAll();
-    let id = "QU" + (allQuiz.length + 1).toString().padStart(3, "0");
+    let quiz;
+    let quizId;
+    let isUpdate = false;
 
-    // Check if quiz_code is provided and already exists
-    if (quiz_code) {
-      const existingQuiz = await Quiz.findOne({ where: { quiz_code } });
-      if (existingQuiz) {
-        return res.status(400).json({ message: "Kode kuis sudah digunakan" });
+    // Check if this is an update or create operation
+    if (quiz_id) {
+      // UPDATE MODE: Check if quiz exists and user owns it
+      isUpdate = true;
+      const ownershipCheck = await checkQuizOwnership(Quiz, quiz_id, userId);
+      if (ownershipCheck.error) {
+        await transaction.rollback();
+        return res.status(ownershipCheck.code).json({ message: ownershipCheck.error });
       }
-    }
 
-    const created_by = req.user.id;
-    const quiz = await Quiz.create({
-      id,
-      title,
-      description: desc,
-      quiz_code: quiz_code || null,
-      created_by,
-    });
-
-    res.status(201).json({
-      message: "Berhasil membuat kuis berjudul " + quiz.title,
-      quiz_id: quiz.id,
-      quiz_code: quiz.quiz_code,
-    });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-const updateQuiz = async (req, res) => {
-  try {
-    const { error, value } = teacherSchema.quizUpdateSchema.validate(req.body);
-    if (error)
-      return res.status(400).json({ message: error.details[0].message });
-
-    const { quiz_id, title, description, quiz_code } = value;
-    const desc = description || "";
-
-    // Check if quiz_code is being updated and already exists for another quiz
-    if (quiz_code) {
-      const existingQuiz = await Quiz.findOne({
-        where: {
-          quiz_code,
-          id: { [require("sequelize").Op.ne]: quiz_id },
-        },
-      });
-      if (existingQuiz) {
-        return res.status(400).json({ message: "Kode kuis sudah digunakan" });
-      }
-    }
-
-    const updateData = { title, description: desc };
-    if (quiz_code !== undefined) {
-      updateData.quiz_code = quiz_code || null;
-    }
-
-    const quiz = await Quiz.update(updateData, { where: { id: quiz_id } });
-
-    if (quiz[0] === 0) {
-      return res.status(404).json({ message: "Kuis tidak ditemukan" });
-    }
-
-    res.status(200).json({
-      message: "Berhasil memperbarui kuis berjudul " + title,
-      quiz_id,
-      quiz_code,
-    });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-const createQuestion = async (req, res) => {
-  try {
-    // Parse incorrect_answers if it's a string
-    req.body.incorrect_answers = parseIncorrectAnswers(
-      req.body.incorrect_answers
-    );
-
-    // Validate inputs
-    await schema.questionSchema.validateAsync(req.body, { abortEarly: false });
-
-    const {
-      quiz_id,
-      type,
-      difficulty,
-      question_text,
-      correct_answer,
-      incorrect_answers,
-    } = req.body;
-
-    // Combine correct_answer and incorrect_answers into options
-    const options = [correct_answer, ...incorrect_answers];
-
-    // Check quiz ownership
-    const ownershipCheck = await checkQuizOwnership(Quiz, quiz_id, req.user.id);
-    if (ownershipCheck.error) {
-      return res
-        .status(ownershipCheck.code)
-        .json({ message: ownershipCheck.error });
-    }
-
-    // Generate question ID
-    const allQuestion = await Question.findAll();
-    const id = "Q" + (allQuestion.length + 1).toString().padStart(3, "0");
-
-    const imagePath = req.file
-      ? `/uploads/${req.user.id}/${req.file.filename}`
-      : null;
-
-    const question = await Question.create({
-      id,
-      quiz_id,
-      type,
-      difficulty,
-      question_text,
-      correct_answer,
-      options,
-      is_generated: 0,
-    });
-
-    if (imagePath) {
-      await QuestionImage.create({
-        user_id: req.user.id,
-        question_id: question.id,
-        image_url: imagePath,
-        uploaded_at: new Date(),
-      });
-    }
-
-    // Format response data
-    const formattedQuestion = {
-      id: question.id,
-      quiz_id: question.quiz_id,
-      type: question.type,
-      difficulty: question.difficulty,
-      question_text: question.question_text,
-      correct_answer: question.correct_answer,
-      options: question.options,
-      image_url: formatImageUrl(req, imagePath),
-    };
-
-    res.status(201).json({
-      message: "Berhasil membuat pertanyaan",
-      question: formattedQuestion,
-    });
-  } catch (error) {
-    if (error.isJoi) {
-      return res
-        .status(400)
-        .json({ errors: error.details.map((err) => err.message) });
-    }
-    res.status(500).json({ message: error.message });
-  }
-};
-
-const updateQuestion = async (req, res) => {
-  try {
-    // Parse incorrect_answers if it's a string
-    req.body.incorrect_answers = parseIncorrectAnswers(
-      req.body.incorrect_answers
-    );
-
-    await schema.updateQuestionSchema.validateAsync(req.body, {
-      abortEarly: false,
-    });
-
-    const {
-      question_id,
-      type,
-      difficulty,
-      question_text,
-      correct_answer,
-      incorrect_answers,
-    } = req.body;
-
-    // Combine correct_answer and incorrect_answers into options
-    const options = [correct_answer, ...incorrect_answers];
-
-    const question = await Question.findOne({
-      where: { id: question_id },
-    });
-
-    if (!question) {
-      return res.status(404).json({ message: "Pertanyaan tidak ditemukan" });
-    }
-
-    // Check quiz ownership
-    const ownershipCheck = await checkQuizOwnership(
-      Quiz,
-      question.quiz_id,
-      req.user.id
-    );
-    if (ownershipCheck.error) {
-      return res
-        .status(ownershipCheck.code)
-        .json({ message: ownershipCheck.error });
-    }
-
-    // Check for new image upload
-    const imagePath = req.file
-      ? `/uploads/${req.user.id}/${req.file.filename}`
-      : null;
-
-    await Question.update(
-      {
-        type,
-        difficulty,
-        question_text,
-        correct_answer,
-        options,
-        is_generated: 0,
-      },
-      {
-        where: { id: question_id },
-      }
-    );
-
-    if (imagePath) {
-      const existingImage = await QuestionImage.findOne({
-        where: { question_id },
-      });
-
-      if (existingImage) {
-        await QuestionImage.update(
-          { image_url: imagePath },
-          { where: { question_id } }
-        );
-      } else {
-        await QuestionImage.create({
-          user_id: req.user.id,
-          question_id,
-          image_url: imagePath,
+      // Check if quiz_code is being updated and already exists for another quiz
+      if (quiz_code) {
+        const { Op } = require("sequelize");
+        const existingQuiz = await Quiz.findOne({
+          where: {
+            quiz_code,
+            id: { [Op.ne]: quiz_id },
+          },
         });
+        if (existingQuiz) {
+          await transaction.rollback();
+          return res.status(400).json({ message: "Kode kuis sudah digunakan" });
+        }
       }
+
+      // Update the quiz
+      await Quiz.update(
+        {
+          title,
+          description: desc,
+          quiz_code: quiz_code || null,
+        },
+        { where: { id: quiz_id }, transaction }
+      );
+
+      quizId = quiz_id;
+
+      // Delete all existing questions for this quiz
+      await Question.destroy({ where: { quiz_id: quizId }, transaction });
+
+      // Also delete related question images
+      const existingQuestionImages = await QuestionImage.findAll({
+        include: [{
+          model: Question,
+          where: { quiz_id: quizId },
+          required: true,
+        }],
+      });
+      
+      for (const img of existingQuestionImages) {
+        // Delete image file from server
+        const imagePath = img.image_url.replace(`/uploads/${userId}/`, "");
+        const fullPath = `./uploads/${userId}/${imagePath}`;
+        if (fs.existsSync(fullPath)) {
+          fs.unlinkSync(fullPath);
+        }
+        await QuestionImage.destroy({ where: { id: img.id }, transaction });
+      }
+
+      quiz = await Quiz.findByPk(quiz_id);
+    } else {
+      // CREATE MODE: Generate new quiz ID and create quiz
+      
+      // Check if quiz_code is provided and already exists
+      if (quiz_code) {
+        const existingQuiz = await Quiz.findOne({ where: { quiz_code } });
+        if (existingQuiz) {
+          await transaction.rollback();
+          return res.status(400).json({ message: "Kode kuis sudah digunakan" });
+        }
+      }
+
+      // Generate quiz ID
+      const allQuiz = await Quiz.findAll();
+      quizId = "QU" + (allQuiz.length + 1).toString().padStart(3, "0");
+
+      // Create the quiz
+      quiz = await Quiz.create(
+        {
+          id: quizId,
+          title,
+          description: desc,
+          quiz_code: quiz_code || null,
+          created_by: userId,
+        },
+        { transaction }
+      );
     }
 
-    // Get updated question
-    const updatedQuestion = await Question.findOne({
-      where: { id: question_id },
-    });
+    // Get current question count to generate IDs
+    const allQuestions = await Question.findAll();
+    let questionCount = allQuestions.length;
 
-    // Format response
-    const formattedQuestion = {
-      id: updatedQuestion.id,
-      quiz_id: updatedQuestion.quiz_id,
-      type: updatedQuestion.type,
-      difficulty: updatedQuestion.difficulty,
-      question_text: updatedQuestion.question_text,
-      correct_answer: updatedQuestion.correct_answer,
-      options: updatedQuestion.options,
-      image_url: formatImageUrl(req, imagePath),
-    };
+    // Create all questions
+    const savedQuestions = [];
+    for (const questionData of questions) {
+      questionCount++;
+      const questionId = "Q" + questionCount.toString().padStart(3, "0");
 
-    return res.status(200).json({
-      message: "Berhasil memperbarui pertanyaan",
-      question: formattedQuestion,
+      // Combine correct_answer and incorrect_answers into options
+      const options = [questionData.correct_answer, ...questionData.incorrect_answers];
+
+      const newQuestion = await Question.create(
+        {
+          id: questionId,
+          quiz_id: quizId,
+          type: questionData.type,
+          difficulty: questionData.difficulty,
+          question_text: questionData.question_text,
+          correct_answer: questionData.correct_answer,
+          options,
+          is_generated: 0,
+        },
+        { transaction }
+      );
+
+      savedQuestions.push({
+        id: newQuestion.id,
+        quiz_id: newQuestion.quiz_id,
+        type: newQuestion.type,
+        difficulty: newQuestion.difficulty,
+        question_text: newQuestion.question_text,
+        correct_answer: newQuestion.correct_answer,
+        options: newQuestion.options,
+      });
+    }
+
+    // Commit the transaction
+    await transaction.commit();
+
+    const actionMessage = isUpdate ? "memperbarui" : "menyimpan";
+    res.status(isUpdate ? 200 : 201).json({
+      message: `Berhasil ${actionMessage} kuis "${quiz.title}" dengan ${savedQuestions.length} pertanyaan`,
+      quiz_id: quizId,
+      quiz_code: quiz.quiz_code,
+      questions: savedQuestions,
     });
   } catch (error) {
-    if (error.isJoi) {
-      return res
-        .status(400)
-        .json({ errors: error.details.map((err) => err.message) });
-    }
+    await transaction.rollback();
     res.status(500).json({ message: error.message });
   }
 };
@@ -849,11 +738,8 @@ const endQuiz = async (req, res) => {
 };
 
 module.exports = {
-  createQuiz,
-  updateQuiz,
+  saveQuizWithQuestions,
   endQuiz,
-  createQuestion,
-  updateQuestion,
   generateQuestion,
   deleteQuestion,
   getUsersQuiz,

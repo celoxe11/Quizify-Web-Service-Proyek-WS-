@@ -61,6 +61,8 @@ const authenticate = async (req, res, next) => {
       dbUser: user,  // Full MySQL user object
     };
 
+    console.log("Authenticated user:", req.user);
+
     next();
   } catch (error) {
     console.error("Firebase token verification error:", error.message);
