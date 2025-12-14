@@ -23,23 +23,33 @@ const createQuiz = async (req, res) => {
     if (error)
       return res.status(400).json({ message: error.details[0].message });
 
-    const { title, description } = value;
+    const { title, description, quiz_code } = value;
     const desc = description || "";
 
     const allQuiz = await Quiz.findAll();
     let id = "QU" + (allQuiz.length + 1).toString().padStart(3, "0");
+
+    // Check if quiz_code is provided and already exists
+    if (quiz_code) {
+      const existingQuiz = await Quiz.findOne({ where: { quiz_code } });
+      if (existingQuiz) {
+        return res.status(400).json({ message: "Kode kuis sudah digunakan" });
+      }
+    }
 
     const created_by = req.user.id;
     const quiz = await Quiz.create({
       id,
       title,
       description: desc,
+      quiz_code: quiz_code || null,
       created_by,
     });
 
     res.status(201).json({
       message: "Berhasil membuat kuis berjudul " + quiz.title,
       quiz_id: quiz.id,
+      quiz_code: quiz.quiz_code,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -52,13 +62,28 @@ const updateQuiz = async (req, res) => {
     if (error)
       return res.status(400).json({ message: error.details[0].message });
 
-    const { quiz_id, title, description } = value;
+    const { quiz_id, title, description, quiz_code } = value;
     const desc = description || "";
 
-    const quiz = await Quiz.update(
-      { title, description: desc },
-      { where: { id: quiz_id } }
-    );
+    // Check if quiz_code is being updated and already exists for another quiz
+    if (quiz_code) {
+      const existingQuiz = await Quiz.findOne({
+        where: {
+          quiz_code,
+          id: { [require("sequelize").Op.ne]: quiz_id },
+        },
+      });
+      if (existingQuiz) {
+        return res.status(400).json({ message: "Kode kuis sudah digunakan" });
+      }
+    }
+
+    const updateData = { title, description: desc };
+    if (quiz_code !== undefined) {
+      updateData.quiz_code = quiz_code || null;
+    }
+
+    const quiz = await Quiz.update(updateData, { where: { id: quiz_id } });
 
     if (quiz[0] === 0) {
       return res.status(404).json({ message: "Kuis tidak ditemukan" });
@@ -67,6 +92,7 @@ const updateQuiz = async (req, res) => {
     res.status(200).json({
       message: "Berhasil memperbarui kuis berjudul " + title,
       quiz_id,
+      quiz_code,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

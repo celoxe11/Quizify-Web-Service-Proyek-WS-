@@ -9,6 +9,7 @@ const {
   getGenerateQuestion,
   getSessionHistory,
   getQuizReview,
+  startQuizByCode,
 } = require("../controllers/studentController");
 
 const { authenticate, isStudent } = require("../middleware/authMiddleware");
@@ -72,4 +73,12 @@ router.get(
   logActivity("Student: Review Quiz"),
   getQuizReview
 );
+router.post(
+  "/startquizbycode/:quiz_code",
+  authenticate,
+  isStudent,
+  logActivity("Student: Start quiz by code"),
+  startQuizByCode
+);
+
 module.exports = router;

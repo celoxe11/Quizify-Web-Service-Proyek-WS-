@@ -58,6 +58,7 @@ async function seedDatabase() {
         id VARCHAR(10) NOT NULL,
         title VARCHAR(255) NOT NULL,
         description TEXT,
+        quiz_code VARCHAR(20) UNIQUE DEFAULT NULL,
         status ENUM("private", "public") DEFAULT "private",
         category VARCHAR(100) DEFAULT NULL,
         created_by VARCHAR(10) DEFAULT NULL,
@@ -256,11 +257,11 @@ async function seedDatabase() {
     // Add dummy quizzes
     console.log("   Adding dummy quizzes...");
     await connection.query(`
-      INSERT INTO quiz (id, title, description, status, category, created_by) VALUES
-      ('QU001', 'General Knowledge Quiz', 'Test your general knowledge across various topics', 'public', 'General', 'TE001'),
-      ('QU002', 'Mathematics Basic', 'Basic mathematics quiz for beginners', 'public', 'Mathematics', 'TE001'),
-      ('QU003', 'Science Fundamentals', 'Fundamental concepts in science', 'private', 'Science', 'TE002'),
-      ('QU004', 'History Quiz', 'Test your knowledge about world history', 'public', 'History', 'TE002')
+      INSERT INTO quiz (id, title, description, quiz_code, status, category, created_by) VALUES
+      ('QU001', 'General Knowledge Quiz', 'Test your general knowledge across various topics', 'GEN2024', 'public', 'General', 'TE001'),
+      ('QU002', 'Mathematics Basic', 'Basic mathematics quiz for beginners', 'MATH101', 'public', 'Mathematics', 'TE001'),
+      ('QU003', 'Science Fundamentals', 'Fundamental concepts in science', 'SCI2024', 'private', 'Science', 'TE002'),
+      ('QU004', 'History Quiz', 'Test your knowledge about world history', 'HIST001', 'public', 'History', 'TE002')
     `);
     console.log("   Dummy quizzes added successfully!");
 

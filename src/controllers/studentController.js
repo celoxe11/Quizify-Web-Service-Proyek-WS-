@@ -65,6 +65,54 @@ const startQuiz = async (req, res) => {
   }
 };
 
+// startQuiz berdasarkan quiz_code
+const startQuizByCode = async (req, res) => {
+  try {
+    const { quiz_code } = req.params;
+    const user_id = req.user.id;
+    const quiz = await Quiz.findOne({
+      where: { quiz_code },
+    });
+    if (!quiz) {
+      return res
+        .status(404)
+        .json({ message: "Kuis dengan kode tersebut tidak ditemukan" });
+    }
+    // cek sesi
+    const activeSession = await QuizSession.findOne({
+      where: {
+        user_id,
+        quiz_id: quiz.id,
+        status: "in_progress",
+      },
+    });
+    if (activeSession) {
+      return res.status(400).json({
+        message: "Anda memiliki sesi kuis yang aktif",
+        session_id: activeSession.id,
+      });
+    }
+    // buat ID
+    const jumlahSession = await QuizSession.count();
+    const idBaruSession = `S${padNumber(jumlahSession + 1)}`;
+    const session = await QuizSession.create({
+      id: idBaruSession,
+      user_id,
+      quiz_id: quiz.id,
+      status: "in_progress",
+      started_at: new Date(),
+      ended_at: null,
+      score: null,
+    });
+    res.status(201).json({
+      message: "Sesi kuis berhasil dimulai",
+      session_id: session.id,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 const getQuestions = async (req, res) => {
   try {
     const { session_id } = req.params;
@@ -145,12 +193,10 @@ const answerQuestion = async (req, res) => {
     });
 
     if (!session) {
-      return res
-        .status(404)
-        .json({
-          message:
-            "Sesi kuis tidak ditemukan, sudah selesai, atau sudah diselesaikan oleh guru",
-        });
+      return res.status(404).json({
+        message:
+          "Sesi kuis tidak ditemukan, sudah selesai, atau sudah diselesaikan oleh guru",
+      });
     }
 
     const question = await Question.findOne({
@@ -229,12 +275,10 @@ const updateAnswer = async (req, res) => {
     });
 
     if (!session) {
-      return res
-        .status(404)
-        .json({
-          message:
-            "Sesi kuis tidak ditemukan, sudah selesai, atau sudah diselesaikan oleh guru",
-        });
+      return res.status(404).json({
+        message:
+          "Sesi kuis tidak ditemukan, sudah selesai, atau sudah diselesaikan oleh guru",
+      });
     }
 
     // cek apakah jawaban sudah pernah diberikan
@@ -516,4 +560,5 @@ module.exports = {
   getGenerateQuestion,
   getSessionHistory,
   getQuizReview,
+  startQuizByCode,
 };
