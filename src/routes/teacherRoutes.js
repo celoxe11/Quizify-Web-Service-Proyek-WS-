@@ -4,7 +4,6 @@ const {
   saveQuizWithQuestions,
   endQuiz,
   generateQuestion,
-  deleteQuestion,
   getUsersQuiz,
   getQuizDetail,
   getQuizResult,
@@ -42,19 +41,11 @@ router.post(
 
 router.post(
   "/generatequestion",
-  authenticate,
-  isTeacher,
-  isPremium,
-  logActivity("Teacher: Generate Question"),
+  // authenticate,
+  // isTeacher,
+  // isPremium,
+  // logActivity("Teacher: Generate Question"),
   generateQuestion
-);
-
-router.delete(
-  "/question/:question_id",
-  authenticate,
-  isTeacher,
-  logActivity("Teacher: Delete Question"),
-  deleteQuestion
 );
 
 router.get(

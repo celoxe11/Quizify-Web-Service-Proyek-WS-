@@ -1,5 +1,4 @@
 const fs = require("fs");
-const schema = require("../utils/validation/");
 const teacherSchema = require("../utils/validation/teacherSchema");
 const {
   Quiz,
@@ -10,12 +9,8 @@ const {
   SubmissionAnswer,
   sequelize,
 } = require("../models");
-const {
-  checkQuizOwnership,
-  formatImageUrl,
-} = require("../utils/helpers");
-
-const opentdb = require("../services/opentdb");
+const { checkQuizOwnership, formatImageUrl } = require("../utils/helpers");
+const generateQuestionGemini = require("../utils/generateQuestionGemini");
 
 /**
  * Save Quiz with Questions
@@ -25,9 +20,11 @@ const opentdb = require("../services/opentdb");
  */
 const saveQuizWithQuestions = async (req, res) => {
   const transaction = await sequelize.transaction();
-  
+
   try {
-    const { error, value } = teacherSchema.saveQuizWithQuestionsSchema.validate(req.body);
+    const { error, value } = teacherSchema.saveQuizWithQuestionsSchema.validate(
+      req.body
+    );
     if (error) {
       await transaction.rollback();
       return res.status(400).json({ message: error.details[0].message });
@@ -48,7 +45,9 @@ const saveQuizWithQuestions = async (req, res) => {
       const ownershipCheck = await checkQuizOwnership(Quiz, quiz_id, userId);
       if (ownershipCheck.error) {
         await transaction.rollback();
-        return res.status(ownershipCheck.code).json({ message: ownershipCheck.error });
+        return res
+          .status(ownershipCheck.code)
+          .json({ message: ownershipCheck.error });
       }
 
       // Check if quiz_code is being updated and already exists for another quiz
@@ -83,13 +82,15 @@ const saveQuizWithQuestions = async (req, res) => {
 
       // Also delete related question images
       const existingQuestionImages = await QuestionImage.findAll({
-        include: [{
-          model: Question,
-          where: { quiz_id: quizId },
-          required: true,
-        }],
+        include: [
+          {
+            model: Question,
+            where: { quiz_id: quizId },
+            required: true,
+          },
+        ],
       });
-      
+
       for (const img of existingQuestionImages) {
         // Delete image file from server
         const imagePath = img.image_url.replace(`/uploads/${userId}/`, "");
@@ -103,7 +104,7 @@ const saveQuizWithQuestions = async (req, res) => {
       quiz = await Quiz.findByPk(quiz_id);
     } else {
       // CREATE MODE: Generate new quiz ID and create quiz
-      
+
       // Check if quiz_code is provided and already exists
       if (quiz_code) {
         const existingQuiz = await Quiz.findOne({ where: { quiz_code } });
@@ -141,7 +142,10 @@ const saveQuizWithQuestions = async (req, res) => {
       const questionId = "Q" + questionCount.toString().padStart(3, "0");
 
       // Combine correct_answer and incorrect_answers into options
-      const options = [questionData.correct_answer, ...questionData.incorrect_answers];
+      const options = [
+        questionData.correct_answer,
+        ...questionData.incorrect_answers,
+      ];
 
       const newQuestion = await Question.create(
         {
@@ -189,141 +193,30 @@ const generateQuestion = async (req, res) => {
     const { error, value } = teacherSchema.generateQuestionSchema.validate(
       req.body
     );
-    if (error)
+    if (error) {
       return res.status(400).json({ message: error.details[0].message });
+    }
 
-    const { quiz_id, type, difficulty, category, amount } = value;
-
-    // Check if quiz exists
-    const quiz = await Quiz.findOne({
-      where: { id: quiz_id },
+    // Call Gemini API to generate questions with all parameters
+    const questions = await generateQuestionGemini({
+      type: value.type,
+      difficulty: value.difficulty,
+      category: value.category,
+      topic: value.topic,
+      language: value.language,
+      context: value.context,
+      age_group: value.age_group,
+      avoid_topics: value.avoid_topics,
+      include_explanation: value.include_explanation,
+      question_style: value.question_style,
     });
 
-    if (!quiz) {
-      return res.status(404).json({ message: "Quiz ID tidak ditemukan" });
-    }
-
-    const params = {
-      amount: amount || 10,
-    };
-    if (category) params.category = category;
-    if (difficulty) params.difficulty = difficulty;
-    if (type) params.type = type;
-
-    const response = await opentdb.get("/api.php", { params });
-    const data = response.data;
-
-    if (!data.results || data.results.length === 0) {
-      return res.status(404).json({
-        message: "Tidak ada pertanyaan yang ditemukan dari Open Trivia DB",
-      });
-    }
-
-    // Get current question count to generate IDs
-    const allQuestions = await Question.findAll();
-    let questionCount = allQuestions.length;
-
-    // Process and save each question from the API
-    const savedQuestions = [];
-    for (const question of data.results) {
-      questionCount++;
-      const id = "Q" + questionCount.toString().padStart(3, "0");
-
-      // Combine correct_answer and incorrect_answers into options
-      const options = [question.correct_answer, ...question.incorrect_answers];
-
-      const newQuestion = await Question.create({
-        id,
-        quiz_id,
-        type: question.type,
-        difficulty: question.difficulty,
-        question_text: question.question,
-        correct_answer: question.correct_answer,
-        options,
-        is_generated: 1,
-      });
-
-      savedQuestions.push({
-        id: newQuestion.id,
-        quiz_id: newQuestion.quiz_id,
-        type: newQuestion.type,
-        difficulty: newQuestion.difficulty,
-        question_text: newQuestion.question_text,
-        correct_answer: newQuestion.correct_answer,
-        options: newQuestion.options,
-      });
-    }
-
-    res.status(201).json({
-      message: `Berhasil menambahkan ${savedQuestions.length} pertanyaan dari Open Trivia DB`,
-      questions: savedQuestions,
+    return res.status(200).json({
+      message: `Berhasil menghasilkan ${questions.length} pertanyaan`,
+      questions: questions,
     });
   } catch (error) {
-    console.error("Error fetching from OpenTDB:", error.message);
-    res.status(500).json({ message: error.message });
-  }
-};
-
-const deleteQuestion = async (req, res) => {
-  try {
-    const { error, value } = teacherSchema.idSchema.validate({
-      id: req.params.question_id,
-    });
-    if (error)
-      return res.status(400).json({ message: error.details[0].message });
-
-    const question_id = value.id;
-
-    const question = await Question.findOne({
-      where: { id: question_id },
-    });
-
-    if (!question) {
-      return res.status(404).json({ message: "Question ID tidak ditemukan" });
-    }
-
-    // Check quiz ownership
-    const ownershipCheck = await checkQuizOwnership(
-      Quiz,
-      question.quiz_id,
-      req.user.id
-    );
-    if (ownershipCheck.error) {
-      return res
-        .status(ownershipCheck.code)
-        .json({ message: ownershipCheck.error });
-    }
-
-    // Delete question
-    await Question.destroy({
-      where: { id: question_id },
-    });
-
-    // Delete related image if exists
-    const questionImage = await QuestionImage.findOne({
-      where: { question_id },
-    });
-
-    if (questionImage) {
-      await QuestionImage.destroy({
-        where: { question_id },
-      });
-
-      // Delete image file from server
-      const imagePath = questionImage.image_url.replace(
-        `/uploads/${req.user.id}/`,
-        ""
-      );
-      const fullPath = `./uploads/${req.user.id}/${imagePath}`;
-      if (fs.existsSync(fullPath)) {
-        fs.unlinkSync(fullPath);
-      }
-    }
-
-    res.status(200).json({
-      message: "Berhasil menghapus pertanyaan dengan ID " + question_id,
-    });
-  } catch (error) {
+    console.error("Error in generateQuestion:", error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -741,7 +634,6 @@ module.exports = {
   saveQuizWithQuestions,
   endQuiz,
   generateQuestion,
-  deleteQuestion,
   getUsersQuiz,
   getQuizDetail,
   getQuizResult,

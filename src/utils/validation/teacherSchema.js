@@ -35,16 +35,61 @@ const idSchema = Joi.object({
   }),
 });
 
-// Generate question schema
+// Generate question schema for Gemini API
 const generateQuestionSchema = Joi.object({
-  quiz_id: Joi.string().required().messages({
-    "any.required": "Quiz ID tidak boleh kosong",
-    "string.empty": "Quiz ID tidak boleh kosong",
+  type: Joi.string()
+    .optional()
+    .valid("multiple", "boolean")
+    .default("multiple")
+    .messages({
+      "any.only": "Type harus berupa 'multiple' atau 'boolean'",
+    }),
+  difficulty: Joi.string()
+    .optional()
+    .valid("easy", "medium", "hard")
+    .default("medium")
+    .messages({
+      "any.only": "Difficulty harus berupa 'easy', 'medium', atau 'hard'",
+    }),
+  category: Joi.string().optional().default("General Knowledge").messages({
+    "string.base": "Kategori harus berupa string",
   }),
-  type: Joi.string().optional(),
-  difficulty: Joi.string().optional(),
-  category: Joi.number().optional(),
-  amount: Joi.number().integer().min(1).max(50).default(10).optional(),
+  topic: Joi.string().optional().allow("").default("").messages({
+    "string.base": "Topik harus berupa string",
+  }),
+  language: Joi.string().optional().valid("id", "en").default("id").messages({
+    "any.only": "Bahasa harus berupa 'id' (Indonesia) atau 'en' (English)",
+  }),
+  context: Joi.string().optional().allow("").default("").max(5000).messages({
+    "string.base": "Konteks harus berupa string",
+    "string.max": "Konteks maksimal 5000 karakter",
+  }),
+  age_group: Joi.string()
+    .optional()
+    .valid("SD", "SMP", "SMA", "Perguruan Tinggi")
+    .default("SMA")
+    .messages({
+      "any.only":
+        "Age group harus berupa 'SD', 'SMP', 'SMA', atau 'Perguruan Tinggi'",
+    }),
+  avoid_topics: Joi.array()
+    .items(Joi.string())
+    .optional()
+    .default([])
+    .messages({
+      "array.base": "Avoid topics harus berupa array string",
+    }),
+  include_explanation: Joi.boolean().optional().default(false).messages({
+    "boolean.base": "Include explanation harus berupa boolean (true/false)",
+  }),
+  question_style: Joi.string()
+    .optional()
+    .valid("formal", "casual", "scenario-based")
+    .default("formal")
+    .messages({
+      "any.only":
+        "Question style harus berupa 'formal', 'casual', atau 'scenario-based'",
+    }),
 });
 
 // Question schema for batch save
@@ -67,11 +112,15 @@ const questionItemSchema = Joi.object({
     "any.required": "Correct answer harus diisi",
     "string.empty": "Correct answer tidak boleh kosong",
   }),
-  incorrect_answers: Joi.array().items(Joi.string()).min(1).required().messages({
-    "any.required": "Incorrect answers harus diisi",
-    "array.base": "Incorrect answers harus berupa array jawaban salah",
-    "array.min": "Incorrect answers harus memiliki minimal 1 jawaban salah",
-  }),
+  incorrect_answers: Joi.array()
+    .items(Joi.string())
+    .min(1)
+    .required()
+    .messages({
+      "any.required": "Incorrect answers harus diisi",
+      "array.base": "Incorrect answers harus berupa array jawaban salah",
+      "array.min": "Incorrect answers harus memiliki minimal 1 jawaban salah",
+    }),
 });
 
 // Save quiz with questions schema (handles both create and update)

@@ -28,7 +28,7 @@ const {
 
 const logActivity = require("../middleware/logActivity");
 const { authenticate, isAdmin } = require("../middleware/authMiddleware");
-const { updateQuiz, createQuiz } = require("../controllers/teacherController");
+const { saveQuizWithQuestions } = require("../controllers/teacherController");
 
 const router = express.Router();
 router.get(
@@ -85,14 +85,14 @@ router.post(
   authenticate,
   isAdmin,
   logActivity("Admin: Create Quiz"),
-  createQuiz
+  saveQuizWithQuestions
 );
 router.put(
   "/quiz",
   authenticate,
   isAdmin,
   logActivity("Admin: Update Quiz"),
-  updateQuiz
+  saveQuizWithQuestions
 );
 router.post(
   "/endquiz/:session_id",
