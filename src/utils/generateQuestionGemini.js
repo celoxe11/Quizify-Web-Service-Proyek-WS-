@@ -14,7 +14,7 @@ require("dotenv").config();
  * @param {string[]} options.avoid_topics - Topics to avoid in questions
  * @param {boolean} options.include_explanation - Whether to include answer explanations
  * @param {string} options.question_style - Question style: "formal", "casual", "scenario-based"
- * @returns {Promise<Array>} Array of generated questions in Question model format
+ * @returns {Promise<Object>} Single generated question object in Question model format
  */
 const generateQuestionGemini = async (options) => {
   try {
@@ -101,16 +101,16 @@ const generateQuestionGemini = async (options) => {
         const generatedText = response.data.candidates[0].content.parts[0].text;
 
         // Extract JSON from response (handle markdown code blocks)
-        const jsonMatch = generatedText.match(/\[[\s\S]*\]/);
+        const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
-          throw new Error("Response tidak mengandung JSON array yang valid");
+          throw new Error("Response tidak mengandung JSON object yang valid");
         }
 
-        const parsedQuestions = JSON.parse(jsonMatch[0]);
+        const parsedQuestion = JSON.parse(jsonMatch[0]);
 
-        // Format questions to match Question model structure
-        const formattedQuestions = formatQuestionsToModel(
-          parsedQuestions,
+        // Format question to match Question model structure
+        const formattedQuestion = formatQuestionToModel(
+          parsedQuestion,
           type,
           difficulty,
           include_explanation
@@ -119,7 +119,7 @@ const generateQuestionGemini = async (options) => {
         console.log(
           `Successfully generated using: ${config.version}/${config.model}`
         );
-        return formattedQuestions;
+        return formattedQuestion;
       } catch (error) {
         const errorMsg = error.response?.data?.error?.message || error.message;
         console.log(`${config.version}/${config.model} failed: ${errorMsg}`);
@@ -212,26 +212,24 @@ Buat pertanyaan berdasarkan konteks di atas.
     : ""
 }
 
-FORMAT RESPONS (JSON Array):
-Kembalikan respons dalam format JSON array dengan TEPAT 1 objek:
-[
-  {
-    "question_text": "Teks pertanyaan di sini",
-    "correct_answer": "Jawaban yang benar",
-    "incorrect_answers": ${
-      type === "multiple"
-        ? '["Jawaban salah 1", "Jawaban salah 2", "Jawaban salah 3"]'
-        : '["Jawaban salah"]'
-    }${
-    include_explanation
-      ? ',\n    "explanation": "Penjelasan mengapa jawaban tersebut benar"'
-      : ""
-  }
-  }
-]
+FORMAT RESPONS (JSON Object):
+Kembalikan respons dalam format JSON object:
+{
+  "question_text": "Teks pertanyaan di sini",
+  "correct_answer": "Jawaban yang benar",
+  "incorrect_answers": ${
+    type === "multiple"
+      ? '["Jawaban salah 1", "Jawaban salah 2", "Jawaban salah 3"]'
+      : '["Jawaban salah"]'
+  }${
+  include_explanation
+    ? ',\n  "explanation": "Penjelasan mengapa jawaban tersebut benar"'
+    : ""
+}
+}
 
 ATURAN PENTING:
-- Hanya generate TEPAT 1 soal, tidak lebih
+- Hanya generate TEPAT 1 soal
 - Pastikan jawaban benar AKURAT dan dapat diverifikasi
 - Jawaban salah harus masuk akal tapi jelas salah
 - Pertanyaan harus jelas dan tidak ambigu
@@ -241,7 +239,7 @@ ATURAN PENTING:
       : "Untuk pilihan ganda, berikan tepat 3 jawaban salah yang berbeda"
   }
 
-PENTING: Kembalikan HANYA JSON array, tanpa teks tambahan atau markdown code block.
+PENTING: Kembalikan HANYA JSON object, tanpa teks tambahan atau markdown code block.
 
 Mulai generate 1 soal sekarang:`;
 
@@ -249,35 +247,33 @@ Mulai generate 1 soal sekarang:`;
 };
 
 /**
- * Format the generated questions to match Question model structure
+ * Format the generated question to match Question model structure
  */
-const formatQuestionsToModel = (
-  questions,
+const formatQuestionToModel = (
+  question,
   type,
   difficulty,
   includeExplanation
 ) => {
-  return questions.map((q) => {
-    // Combine correct and incorrect answers, then shuffle
-    const allOptions = [q.correct_answer, ...q.incorrect_answers];
-    const shuffledOptions = shuffleArray(allOptions);
+  // Combine correct and incorrect answers, then shuffle
+  const allOptions = [question.correct_answer, ...question.incorrect_answers];
+  const shuffledOptions = shuffleArray(allOptions);
 
-    const formattedQuestion = {
-      type,
-      difficulty,
-      question_text: q.question_text,
-      correct_answer: q.correct_answer,
-      options: shuffledOptions,
-      is_generated: true,
-    };
+  const formattedQuestion = {
+    type,
+    difficulty,
+    question_text: question.question_text,
+    correct_answer: question.correct_answer,
+    options: shuffledOptions,
+    is_generated: true,
+  };
 
-    // Include explanation if requested
-    if (includeExplanation && q.explanation) {
-      formattedQuestion.explanation = q.explanation;
-    }
+  // Include explanation if requested
+  if (includeExplanation && question.explanation) {
+    formattedQuestion.explanation = question.explanation;
+  }
 
-    return formattedQuestion;
-  });
+  return formattedQuestion;
 };
 
 /**

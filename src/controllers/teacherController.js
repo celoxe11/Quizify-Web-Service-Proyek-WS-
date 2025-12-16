@@ -198,7 +198,7 @@ const generateQuestion = async (req, res) => {
     }
 
     // Call Gemini API to generate questions with all parameters
-    const questions = await generateQuestionGemini({
+    const question = await generateQuestionGemini({
       type: value.type,
       difficulty: value.difficulty,
       category: value.category,
@@ -212,8 +212,7 @@ const generateQuestion = async (req, res) => {
     });
 
     return res.status(200).json({
-      message: `Berhasil menghasilkan ${questions.length} pertanyaan`,
-      questions: questions,
+      question: question,
     });
   } catch (error) {
     console.error("Error in generateQuestion:", error);
