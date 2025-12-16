@@ -53,15 +53,21 @@ const authenticate = async (req, res, next) => {
       return sendHttpCatImage(res, 403);  // Account is inactive
     }
 
-    // Attach both Firebase token data and MySQL user data to request
-    req.user = {
-      uid: decodedToken.uid,
-      email: decodedToken.email,
-      role: user.role,
-      dbUser: user,  // Full MySQL user object
-    };
+    // Convert Sequelize instance to plain object
+    const userData = user.get({ plain: true });
 
-    console.log("Authenticated user:", req.user);
+    // Attach clean user data to request
+    req.user = {
+      id: userData.id,
+      uid: decodedToken.uid,
+      email: userData.email,
+      name: userData.name,
+      username: userData.username,
+      role: userData.role,
+      subscription_id: userData.subscription_id,
+      is_active: userData.is_active,
+      firebase_uid: userData.firebase_uid,
+    };
 
     next();
   } catch (error) {

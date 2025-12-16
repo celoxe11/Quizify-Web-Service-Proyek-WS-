@@ -222,6 +222,7 @@ const generateQuestion = async (req, res) => {
 
 const getUsersQuiz = async (req, res) => {
   try {
+    console.log(req.user);
     const userId = req.user.id;
     const quizzes = await Quiz.findAll({
       where: { created_by: userId },
@@ -295,7 +296,18 @@ const getQuizDetail = async (req, res) => {
 
     res.status(200).json({
       message: `Berhasil mendapatkan detail kuis ${ownershipCheck.quiz.title}`,
-      questions,
+      quiz: {
+        id: ownershipCheck.quiz.id,
+        title: ownershipCheck.quiz.title,
+        description: ownershipCheck.quiz.description,
+        quiz_code: ownershipCheck.quiz.quiz_code,
+        status: ownershipCheck.quiz.status,
+        category: ownershipCheck.quiz.category,
+        created_by: ownershipCheck.quiz.created_by,
+        created_at: ownershipCheck.quiz.created_at,
+        updated_at: ownershipCheck.quiz.updated_at,
+        questions,
+      },
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

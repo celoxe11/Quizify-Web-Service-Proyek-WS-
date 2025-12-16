@@ -41,10 +41,10 @@ router.post(
 
 router.post(
   "/generatequestion",
-  // authenticate,
-  // isTeacher,
-  // isPremium,
-  // logActivity("Teacher: Generate Question"),
+  authenticate,
+  isTeacher,
+  isPremium,
+  logActivity("Teacher: Generate Question"),
   generateQuestion
 );
 
