@@ -2,6 +2,7 @@ const express = require("express");
 
 const {
   saveQuizWithQuestions,
+  deleteQuiz,
   endQuiz,
   generateQuestion,
   getUsersQuiz,
@@ -30,6 +31,14 @@ router.post(
   logActivity("Teacher: Save Quiz with Questions"),
   saveQuizWithQuestions
 );
+
+router.delete(
+  "/quiz/delete",
+  authenticate,
+  isTeacher,
+  logActivity("Teacher: Delete Quiz"),
+  deleteQuiz
+)
 
 router.post(
   "/endquiz/:session_id",

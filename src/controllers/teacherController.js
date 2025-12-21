@@ -188,6 +188,56 @@ const saveQuizWithQuestions = async (req, res) => {
   }
 };
 
+const deleteQuiz = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const { error, value } = teacherSchema.idSchema.validate(req.body);
+    if (error) {
+      await transaction.rollback();
+      return res.status(400).json({ message: error.details[0].message });
+    }
+    const quiz_id = value.id;
+    const userId = req.user.id;
+
+    // Check quiz ownership
+    const ownershipCheck = await checkQuizOwnership(Quiz, quiz_id, userId);
+    if (ownershipCheck.error) {
+      await transaction.rollback();
+      return res
+        .status(ownershipCheck.code)
+        .json({ message: ownershipCheck.error });
+    }
+    // Delete related question images
+    const existingQuestionImages = await QuestionImage.findAll({
+      include: [
+        {
+          model: Question,
+          where: { quiz_id: quiz_id },
+          required: true,
+        },
+      ],
+    });
+    for (const img of existingQuestionImages) {
+      // Delete image file from server
+      const imagePath = img.image_url.replace(`/uploads/${userId}/`, "");
+      const fullPath = `./uploads/${userId}/${imagePath}`;
+      if (fs.existsSync(fullPath)) {
+        fs.unlinkSync(fullPath);
+      }
+      await QuestionImage.destroy({ where: { id: img.id }, transaction });
+    }
+    // Delete questions
+    await Question.destroy({ where: { quiz_id: quiz_id }, transaction });
+    // Delete quiz
+    await Quiz.destroy({ where: { id: quiz_id }, transaction });
+    await transaction.commit();
+    res.status(200).json({ message: "Kuis berhasil dihapus" });
+  } catch (error) {
+    await transaction.rollback();
+    res.status(500).json({ message: error.message });
+  }
+};
+
 const generateQuestion = async (req, res) => {
   try {
     const { error, value } = teacherSchema.generateQuestionSchema.validate(
@@ -643,6 +693,7 @@ const endQuiz = async (req, res) => {
 
 module.exports = {
   saveQuizWithQuestions,
+  deleteQuiz,
   endQuiz,
   generateQuestion,
   getUsersQuiz,
