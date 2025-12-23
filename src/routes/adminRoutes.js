@@ -24,6 +24,7 @@ const {
   getStudentsAnswers,
   getQuizAccuracy,
   getAllQuizzes,
+  getAllUsers,
 } = require("../controllers/adminController");
 
 const logActivity = require("../middleware/logActivity");
@@ -168,5 +169,13 @@ router.get(
   logActivity("Admin: Get Quiz Accuracy Result"),
   getQuizAccuracy
 );
+router.get(
+    '/users', 
+    authenticate, 
+    isAdmin, 
+    logActivity("Admin: Get All Users"),
+    getAllUsers
+);
+
 
 module.exports = router;

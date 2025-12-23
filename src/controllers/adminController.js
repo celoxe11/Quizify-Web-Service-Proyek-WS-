@@ -918,6 +918,59 @@ const endQuiz = async (req, res) => {
   }
 };
 
+const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.findAll({
+      // 1. WAJIB: Masukkan 'subscription_id' ke dalam attributes
+      attributes: ["id", "name", "username", "email", "role", "is_active", "subscription_id"],
+      include: [
+        {
+          model: Subscription,
+          // as: 'subscription', // (Opsional: Uncomment jika di model User.js kamu pakai alias 'as')
+          attributes: ["status"],
+        },
+      ],
+      order: [["created_at", "DESC"]],
+    });
+
+    // 2. FORMATTING DATA (PENTING!)
+    // Kita harus "meratakan" objek agar sesuai dengan UserModel di Flutter
+    const formattedUsers = users.map((user) => {
+      // Ubah instance Sequelize jadi plain object
+      const u = user.toJSON();
+      
+      return {
+        id: u.id,
+        name: u.name,
+        username: u.username,
+        email: u.email,
+        role: u.role,
+        
+        // Paksa is_active jadi angka 1 atau 0 (Integer) untuk menghindari error 'String is not subtype of Int'
+        is_active: u.is_active ? 1 : 0,
+
+        subscription_id: u.subscription_id,
+        
+        // Ambil status dari nested object, taruh di root json
+        // Cek apakah u.Subscription (kapital S) atau u.subscription (kecil) tergantung definisi model kamu
+        subscription_status: u.Subscription ? u.Subscription.status : (u.subscription ? u.subscription.status : 'Free')
+      };
+    });
+
+    // 3. WRAPPING RESPONSE
+    // Flutter AdminApiService mengharapkan: response.data['data']
+    return res.status(200).json({
+      success: true,
+      data: formattedUsers 
+    });
+
+  } catch (error) {
+    console.error("Error getAllUsers:", error);
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+
 
 module.exports = {
   getLog,
@@ -939,4 +992,5 @@ module.exports = {
   subscribe,
   unsubscribe,
   endQuiz,
+  getAllUsers,
 };
