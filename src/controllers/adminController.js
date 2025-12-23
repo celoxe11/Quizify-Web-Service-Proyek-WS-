@@ -926,7 +926,7 @@ const getAllUsers = async (req, res) => {
       include: [
         {
           model: Subscription,
-          // as: 'subscription', // (Opsional: Uncomment jika di model User.js kamu pakai alias 'as')
+          // as: 'subscription', 
           attributes: ["status"],
         },
       ],
@@ -953,7 +953,7 @@ const getAllUsers = async (req, res) => {
         
         // Ambil status dari nested object, taruh di root json
         // Cek apakah u.Subscription (kapital S) atau u.subscription (kecil) tergantung definisi model kamu
-        subscription_status: u.Subscription ? u.Subscription.status : (u.subscription ? u.subscription.status : 'Free')
+        subscription_status: u.subscription ? u.subscription.status : 'Free'
       };
     });
 
@@ -965,7 +965,11 @@ const getAllUsers = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Error getAllUsers:", error);
+    console.error("=========================================");
+    console.error("🔥 ERROR SAAT GET ALL USERS:");
+    console.error(error); // Ini akan mencetak stack trace lengkap
+    console.error("=========================================");
+
     return res.status(500).json({ message: error.message });
   }
 };
