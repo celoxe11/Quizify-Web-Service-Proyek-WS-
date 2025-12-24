@@ -15,8 +15,20 @@ const associationOptions = {
 };
 
 // 1. User <-> Subscription
-User.belongsTo(Subscription, { foreignKey: 'subscription_id', constraints: false });
-Subscription.hasMany(User, { foreignKey: 'subscription_id', constraints: false });
+User.belongsTo(Subscription, { 
+  foreignKey: 'subscription_id', 
+  targetKey: 'id_subs',  
+  as: 'subscription',   
+  constraints: false 
+});
+
+// 2. Subscription "Punya Banyak" User
+// Di sini kita pakai sourceKey (Sumbernya dari id_subs milik Subscription)
+Subscription.hasMany(User, { 
+  foreignKey: 'subscription_id', 
+  sourceKey: 'id_subs', 
+  constraints: false 
+});
 
 // 2. User <-> UserLog
 User.hasMany(UserLog, { foreignKey: 'user_id', constraints: false });

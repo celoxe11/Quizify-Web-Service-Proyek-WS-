@@ -8,7 +8,6 @@ const {
 
 const {
   getLog,
-  getSubsList,
   createTierList,
   getTierList,
   userSubscription,
@@ -30,6 +29,7 @@ const {
 const logActivity = require("../middleware/logActivity");
 const { authenticate, isAdmin } = require("../middleware/authMiddleware");
 const { saveQuizWithQuestions } = require("../controllers/teacherController");
+
 
 const router = express.Router();
 router.get(
@@ -60,13 +60,7 @@ router.put(
   isAdmin,
   userSubscription
 );
-router.get(
-  "/users",
-  authenticate,
-  logActivity("Admin: View Users"),
-  isAdmin,
-  getSubsList
-);
+
 router.post(
   "/tierlist",
   authenticate,

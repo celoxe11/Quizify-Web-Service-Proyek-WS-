@@ -79,26 +79,6 @@ const userSubscription = async (req, res) => {
   }
 };
 
-// Ambil daftar user beserta subscription mereka
-const getSubsList = async (req, res) => {
-  try {
-    const users = await User.findAll({
-      attributes: ["id", "name", "username", "email", "role", "is_active"],
-      include: [
-        {
-          model: Subscription,
-          attributes: ["status"],
-        },
-      ],
-      order: [[Subscription, "status", "DESC"]],
-    });
-
-    return res.status(200).json(users);
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
-  }
-};
-
 // Buat tier subscription baru
 const createTierList = async (req, res) => {
   const schema = Joi.object({
@@ -920,13 +900,14 @@ const endQuiz = async (req, res) => {
 
 const getAllUsers = async (req, res) => {
   try {
+
     const users = await User.findAll({
       // 1. WAJIB: Masukkan 'subscription_id' ke dalam attributes
       attributes: ["id", "name", "username", "email", "role", "is_active", "subscription_id"],
       include: [
         {
           model: Subscription,
-          // as: 'subscription', 
+          as: 'subscription', 
           attributes: ["status"],
         },
       ],
@@ -937,7 +918,7 @@ const getAllUsers = async (req, res) => {
     // Kita harus "meratakan" objek agar sesuai dengan UserModel di Flutter
     const formattedUsers = users.map((user) => {
       // Ubah instance Sequelize jadi plain object
-      const u = user.toJSON();
+      const u = user.get({ plain: true }); 
       
       return {
         id: u.id,
@@ -979,7 +960,6 @@ const getAllUsers = async (req, res) => {
 module.exports = {
   getLog,
   userSubscription,
-  getSubsList,
   createTierList,
   getTierList,
   getAllQuestions,
