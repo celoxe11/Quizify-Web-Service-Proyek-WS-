@@ -19,6 +19,10 @@ const Quiz = sequelize.define(
       type: DataTypes.STRING(20),
       unique: true,
     },
+    status:{
+      type: DataTypes.ENUM('private', 'public'),
+      defaultValue: 'private',
+    },
     category: {
       type: DataTypes.STRING(100),
     },
