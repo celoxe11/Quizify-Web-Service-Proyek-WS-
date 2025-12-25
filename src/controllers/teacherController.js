@@ -1,4 +1,5 @@
 const fs = require("fs");
+const path = require("path");
 const teacherSchema = require("../utils/validation/teacherSchema");
 const {
   Quiz,
@@ -30,9 +31,19 @@ const saveQuizWithQuestions = async (req, res) => {
       return res.status(400).json({ message: error.details[0].message });
     }
 
-    const { quiz_id, title, description, quiz_code, questions } = value;
+    const {
+      quiz_id,
+      title,
+      description,
+      category,
+      status,
+      quiz_code,
+      questions,
+    } = value;
     const desc = description || "";
     const userId = req.user.id;
+
+    console.log("Status: ", status);
 
     let quiz;
     let quizId;
@@ -61,7 +72,7 @@ const saveQuizWithQuestions = async (req, res) => {
         });
         if (existingQuiz) {
           await transaction.rollback();
-          return res.status(400).json({ message: "Kode kuis sudah digunakan" });
+          return res.status(400).json({ message: "Quiz code already in use" });
         }
       }
 
@@ -70,6 +81,8 @@ const saveQuizWithQuestions = async (req, res) => {
         {
           title,
           description: desc,
+          category: category || null,
+          status: status,
           quiz_code: quiz_code || null,
         },
         { where: { id: quiz_id }, transaction }
@@ -110,7 +123,7 @@ const saveQuizWithQuestions = async (req, res) => {
         const existingQuiz = await Quiz.findOne({ where: { quiz_code } });
         if (existingQuiz) {
           await transaction.rollback();
-          return res.status(400).json({ message: "Kode kuis sudah digunakan" });
+          return res.status(400).json({ message: "Quiz code already in use" });
         }
       }
 
@@ -124,11 +137,19 @@ const saveQuizWithQuestions = async (req, res) => {
           id: quizId,
           title,
           description: desc,
+          category: category || null,
+          status: status,
           quiz_code: quiz_code || null,
           created_by: userId,
         },
         { transaction }
       );
+    }
+
+    // Ensure user upload directory exists
+    const userUploadDir = `./uploads/${userId}`;
+    if (!fs.existsSync(userUploadDir)) {
+      fs.mkdirSync(userUploadDir, { recursive: true });
     }
 
     // Get current question count to generate IDs
@@ -161,6 +182,48 @@ const saveQuizWithQuestions = async (req, res) => {
         { transaction }
       );
 
+      // Handle image upload if question_image is provided
+      let imageUrl = null;
+      if (questionData.question_image) {
+        try {
+          // Remove data URI prefix if present (e.g., "data:image/png;base64,")
+          const base64Data = questionData.question_image.replace(
+            /^data:image\/\w+;base64,/,
+            ""
+          );
+          const buffer = Buffer.from(base64Data, "base64");
+
+          // Generate unique filename
+          const timestamp = Date.now();
+          const randomString = Math.random().toString(36).substring(2, 15);
+          const filename = `question_${questionId}_${timestamp}_${randomString}.png`;
+          const filepath = path.join(userUploadDir, filename);
+
+          // Save image to file system
+          fs.writeFileSync(filepath, buffer);
+
+          // Create image URL
+          imageUrl = `/uploads/${userId}/${filename}`;
+
+          // Save to QuestionImage table
+          await QuestionImage.create(
+            {
+              user_id: userId,
+              question_id: questionId,
+              image_url: imageUrl,
+              uploaded_at: new Date(),
+            },
+            { transaction }
+          );
+        } catch (imageError) {
+          console.error(
+            `Error processing image for question ${questionId}:`,
+            imageError
+          );
+          // Continue without image if there's an error
+        }
+      }
+
       savedQuestions.push({
         id: newQuestion.id,
         quiz_id: newQuestion.quiz_id,
@@ -169,6 +232,7 @@ const saveQuizWithQuestions = async (req, res) => {
         question_text: newQuestion.question_text,
         correct_answer: newQuestion.correct_answer,
         options: newQuestion.options,
+        image_url: formatImageUrl(req, imageUrl),
       });
     }
 
@@ -231,7 +295,7 @@ const deleteQuiz = async (req, res) => {
     // Delete quiz
     await Quiz.destroy({ where: { id: quiz_id }, transaction });
     await transaction.commit();
-    res.status(200).json({ message: "Kuis berhasil dihapus" });
+    res.status(200).json({ message: "Successfully delete quiz" });
   } catch (error) {
     await transaction.rollback();
     res.status(500).json({ message: error.message });

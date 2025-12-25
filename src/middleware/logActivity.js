@@ -3,8 +3,8 @@ const { UserLog } = require("../models");
 const logActivity = (actionType) => {
   return async (req, res, next) => {
     try {
-        console.log(req.user);
-        
+      // console.log(req.user);
+
       const userId = req.user.id;
       if (userId) {
         await UserLog.create({

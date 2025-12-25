@@ -1,5 +1,5 @@
 const { DataTypes } = require("sequelize");
-const sequelize = require("../config/db");
+const sequelize = require("../database/connection");
 
 const Quiz = sequelize.define(
   "Quiz",
@@ -21,6 +21,10 @@ const Quiz = sequelize.define(
     },
     category: {
       type: DataTypes.STRING(100),
+    },
+    status: {
+      type: DataTypes.ENUM("public", "private"),
+      defaultValue: "private",
     },
     created_by: {
       type: DataTypes.STRING(10),

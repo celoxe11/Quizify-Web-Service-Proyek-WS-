@@ -1,5 +1,5 @@
 const { DataTypes } = require("sequelize");
-const sequelize = require("../config/db");
+const sequelize = require("../database/connection");
 
 const Subscription = sequelize.define("Subscription", {
   id_subs: {

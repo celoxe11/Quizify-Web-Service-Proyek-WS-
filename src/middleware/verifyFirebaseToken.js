@@ -9,16 +9,16 @@ const verifyToken = async (req, res, next) => {
   }
 
   try {
-    console.log("============================");
-    console.log("Verifying token...");
-    console.log("Token length:", token.length);
+    // console.log("============================");
+    // console.log("Verifying token...");
+    // console.log("Token length:", token.length);
 
     // Verify the token with Firebase Admin SDK
     const decodedToken = await admin.auth().verifyIdToken(token);
 
-    console.log("Token verified successfully!");
-    console.log("User ID:", decodedToken.uid);
-    console.log("Email:", decodedToken.email);
+    // console.log("Token verified successfully!");
+    // console.log("User ID:", decodedToken.uid);
+    // console.log("Email:", decodedToken.email);
 
     // Attach the user info to the request object
     req.user = decodedToken;

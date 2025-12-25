@@ -1,3 +1,4 @@
+const sequelize = require('../database/connection');
 const User = require('./User');
 const UserLog = require('./UserLog');
 const Subscription = require('./Subscription');
@@ -75,6 +76,7 @@ Quiz.hasMany(QuestionAccuracy, { foreignKey: 'quiz_id', constraints: false });
 QuestionAccuracy.belongsTo(Quiz, { foreignKey: 'quiz_id', constraints: false });
 
 module.exports = {
+  sequelize,
   User,
   UserLog,
   Subscription,

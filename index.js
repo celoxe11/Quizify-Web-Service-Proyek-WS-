@@ -1,7 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const app = express();
-const sequelize = require("./src/config/db");
+const sequelize = require("./src/database/connection");
 const studentRoutes = require("./src/routes/studentRoutes");
 const teacherRoutes = require("./src/routes/teacherRoutes");
 const adminRoutes = require("./src/routes/adminRoutes");
@@ -36,6 +36,6 @@ sequelize
   .authenticate()
   .then(() => {
     console.log("Database connected");
-    app.listen(3000, () => console.log("Server running on port 3000"));
+    app.listen(3000, '0.0.0.0', () => console.log('Server running on http://0.0.0.0:3000'));
   })
   .catch((err) => console.error("Database connection failed:", err));
