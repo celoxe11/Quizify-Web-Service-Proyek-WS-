@@ -107,7 +107,7 @@ const saveQuizWithQuestions = async (req, res) => {
       for (const img of existingQuestionImages) {
         // Delete image file from server
         const imagePath = img.image_url.replace(`/uploads/${userId}/`, "");
-        const fullPath = `./uploads/${userId}/${imagePath}`;
+        const fullPath = `./src/uploads/${userId}/${imagePath}`;
         if (fs.existsSync(fullPath)) {
           fs.unlinkSync(fullPath);
         }
@@ -147,7 +147,7 @@ const saveQuizWithQuestions = async (req, res) => {
     }
 
     // Ensure user upload directory exists
-    const userUploadDir = `./uploads/${userId}`;
+    const userUploadDir = `./src/uploads/${userId}`;
     if (!fs.existsSync(userUploadDir)) {
       fs.mkdirSync(userUploadDir, { recursive: true });
     }
@@ -284,7 +284,7 @@ const deleteQuiz = async (req, res) => {
     for (const img of existingQuestionImages) {
       // Delete image file from server
       const imagePath = img.image_url.replace(`/uploads/${userId}/`, "");
-      const fullPath = `./uploads/${userId}/${imagePath}`;
+      const fullPath = `./src/uploads/${userId}/${imagePath}`;
       if (fs.existsSync(fullPath)) {
         fs.unlinkSync(fullPath);
       }

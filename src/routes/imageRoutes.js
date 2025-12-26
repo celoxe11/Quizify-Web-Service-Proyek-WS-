@@ -11,6 +11,7 @@ router.get("/:userId/:filename", (req, res) => {
   if (fs.existsSync(filePath)) {
     res.sendFile(filePath);
   } else {
+    console.log(filePath);
     res.status(404).json({ message: "Gambar Soal tidak ditemukan" });
   }
 });

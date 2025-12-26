@@ -4,7 +4,7 @@ const Joi = require("joi");
 
 const {User, Subscription, UserLog, Question, Quiz, QuestionImage, SubmissionAnswer, QuizSession} = require("../models/index");
 const { formatImageUrl } = require("../utils/helpers");
-const sequelize = require("../config/db");
+const sequelize = require("../database/connection");
 const { Op } = require("sequelize");
 
 
