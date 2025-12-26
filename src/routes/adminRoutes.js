@@ -10,7 +10,6 @@ const {
   getLog,
   createTierList,
   getTierList,
-  userSubscription,
   getAllQuestions,
   getQuizResult,
   getQuizDetail,
@@ -24,6 +23,8 @@ const {
   getQuizAccuracy,
   getAllQuizzes,
   getAllUsers,
+  getDashboardAnalytics,
+  toggleUserStatus,
 } = require("../controllers/adminController");
 
 const logActivity = require("../middleware/logActivity");
@@ -52,13 +53,6 @@ router.get(
   logActivity("Admin View Log Access"),
   isAdmin,
   getLog
-);
-router.put(
-  "/users/subscription",
-  authenticate,
-  logActivity("Admin: View Log Access"),
-  isAdmin,
-  userSubscription
 );
 
 router.post(
@@ -96,6 +90,7 @@ router.post(
   logActivity("Admin: End quiz"),
   endQuiz
 );
+
 router.post(
   "/question",
   authenticate,
@@ -169,6 +164,22 @@ router.get(
     isAdmin, 
     logActivity("Admin: Get All Users"),
     getAllUsers
+);
+
+router.get(
+  "/analytics", 
+  authenticate, 
+  isAdmin, 
+  // logActivity("Admin: View Analytics"), // Opsional jika ada middleware log
+  getDashboardAnalytics
+);
+
+router.patch(
+  "/users/:id/status", // Endpoint: /api/admin/users/ST001/status
+  authenticate, 
+  isAdmin, 
+  logActivity("Admin Change User Status"), // Jika middleware log aktif
+  toggleUserStatus
 );
 
 
