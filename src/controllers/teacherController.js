@@ -13,22 +13,25 @@ const {
 const { checkQuizOwnership, formatImageUrl } = require("../utils/helpers");
 const generateQuestionGemini = require("../utils/generateQuestionGemini");
 
-/**
- * Save Quiz with Questions
- * Creates a new quiz OR updates an existing quiz with all its questions in a single transaction
- * - If quiz_id is NOT provided: Creates a new quiz with questions
- * - If quiz_id IS provided: Updates the quiz and replaces all questions
- */
 const saveQuizWithQuestions = async (req, res) => {
   const transaction = await sequelize.transaction();
 
   try {
     const { error, value } = teacherSchema.saveQuizWithQuestionsSchema.validate(
-      req.body
+      req.body,
+      { abortEarly: false } // Get all validation errors
     );
     if (error) {
       await transaction.rollback();
-      return res.status(400).json({ message: error.details[0].message });
+      console.log("=== Validation Errors ===");
+      console.log(JSON.stringify(error.details, null, 2));
+      return res.status(400).json({
+        message: error.details[0].message,
+        errors: error.details.map((e) => ({
+          field: e.path.join("."),
+          message: e.message,
+        })),
+      });
     }
 
     const {
@@ -42,8 +45,6 @@ const saveQuizWithQuestions = async (req, res) => {
     } = value;
     const desc = description || "";
     const userId = req.user.id;
-
-    console.log("Status: ", status);
 
     let quiz;
     let quizId;
@@ -152,9 +153,19 @@ const saveQuizWithQuestions = async (req, res) => {
       fs.mkdirSync(userUploadDir, { recursive: true });
     }
 
-    // Get current question count to generate IDs
-    const allQuestions = await Question.findAll();
-    let questionCount = allQuestions.length;
+    // Get highest question ID to generate new IDs
+    const allQuestions = await Question.findAll({
+      attributes: ["id"],
+      order: [["id", "DESC"]],
+      limit: 1,
+    });
+
+    // Extract the number from the highest ID (e.g., "Q019" -> 19)
+    let questionCount = 0;
+    if (allQuestions.length > 0) {
+      const highestId = allQuestions[0].id;
+      questionCount = parseInt(highestId.substring(1)); // Remove "Q" prefix and parse number
+    }
 
     // Create all questions
     const savedQuestions = [];
@@ -177,7 +188,7 @@ const saveQuizWithQuestions = async (req, res) => {
           question_text: questionData.question_text,
           correct_answer: questionData.correct_answer,
           options,
-          is_generated: 0,
+          is_generated: questionData.is_generated || false,
         },
         { transaction }
       );
@@ -248,7 +259,11 @@ const saveQuizWithQuestions = async (req, res) => {
     });
   } catch (error) {
     await transaction.rollback();
-    res.status(500).json({ message: error.message });
+    console.error("Error in saveQuizWithQuestions:", error);
+    res.status(500).json({
+      message: error.message || "Internal server error",
+      error: process.env.NODE_ENV === "development" ? error.stack : undefined,
+    });
   }
 };
 
@@ -336,7 +351,6 @@ const generateQuestion = async (req, res) => {
 
 const getUsersQuiz = async (req, res) => {
   try {
-    console.log(req.user);
     const userId = req.user.id;
     const quizzes = await Quiz.findAll({
       where: { created_by: userId },
@@ -469,6 +483,7 @@ const getQuizResult = async (req, res) => {
 
     // Format results
     const results = quizSessions.map((session) => ({
+      student_id: session.User.id,
       student: session.User.name,
       score: session.score,
       started_at: session.started_at.toISOString(),
@@ -486,31 +501,45 @@ const getQuizResult = async (req, res) => {
 
 const getStudentsAnswers = async (req, res) => {
   try {
-    const { student_id, quiz_id } = req.body;
+    const { student_id, quiz_id } = req.params;
 
-    const sessions = await QuizSession.findAll({
+    const session = await QuizSession.findOne({
       where: {
         user_id: student_id,
         quiz_id,
       },
     });
 
-    if (!sessions || sessions.length === 0) {
+    if (!session) {
       return res
         .status(404)
         .json({ message: "Tidak ada sesi quiz yang ditemukan" });
     }
 
-    // Get answers for all sessions
+    // Get answers for the session
     const answers = await SubmissionAnswer.findAll({
       where: {
-        quiz_session_id: sessions.map((session) => session.id),
+        quiz_session_id: session.id,
       },
+      include: [
+        {
+          model: Question,
+          required: false,
+          attributes: [
+            "id",
+            "type",
+            "difficulty",
+            "question_text",
+            "correct_answer",
+            "options",
+          ],
+        },
+      ],
     });
 
     res.status(200).json({
       message: "Berhasil mendapatkan jawaban siswa",
-      sessions: sessions,
+      session: session,
       answers: answers,
     });
   } catch (error) {

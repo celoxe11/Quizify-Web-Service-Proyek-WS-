@@ -82,7 +82,7 @@ router.get(
 );
 
 router.get(
-  "/quiz/answers",
+  "/quiz/answers/:quiz_id/:student_id",
   authenticate,
   isTeacher,
   logActivity("Teacher: Get a Student's Answers"),
