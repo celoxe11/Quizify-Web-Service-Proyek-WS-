@@ -1,4 +1,21 @@
-const { User } = require("../models");
+const { User, Quiz } = require("../models");
+
+const getPublicQuiz = async (req, res) => {
+  try {
+    // Logic to fetch and return public quizzes
+    // get 3 quizzes where status is 'public' and is the most recently created
+    const publicQuizzes = await Quiz.findAll({
+      where: { status: "public" },
+      order: [["created_at", "DESC"]],
+      limit: 3,
+    });
+    res.json(publicQuizzes);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: `Failed to fetch public quizzes - ${error.message}` });
+  }
+};
 
 // Update Profile (Name, Username, etc.)
 const updateProfile = async (req, res) => {
@@ -34,5 +51,6 @@ const updateProfile = async (req, res) => {
 };
 
 module.exports = {
+  getPublicQuiz,
   updateProfile,
 };
