@@ -54,12 +54,14 @@ const saveQuizWithQuestions = async (req, res) => {
     if (quiz_id) {
       // UPDATE MODE: Check if quiz exists and user owns it
       isUpdate = true;
-      const ownershipCheck = await checkQuizOwnership(Quiz, quiz_id, userId);
-      if (ownershipCheck.error) {
-        await transaction.rollback();
-        return res
-          .status(ownershipCheck.code)
-          .json({ message: ownershipCheck.error });
+      if (req.user.role !== "admin") {
+        const ownershipCheck = await checkQuizOwnership(Quiz, quiz_id, userId);
+        if (ownershipCheck.error) {
+          await transaction.rollback();
+          return res
+            .status(ownershipCheck.code)
+            .json({ message: ownershipCheck.error });
+        }
       }
 
       // Check if quiz_code is being updated and already exists for another quiz
