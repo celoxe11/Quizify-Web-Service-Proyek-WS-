@@ -107,6 +107,7 @@ const startQuizByCode = async (req, res) => {
     res.status(201).json({
       message: "Sesi kuis berhasil dimulai",
       session_id: session.id,
+      quiz_id: quiz.id,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
