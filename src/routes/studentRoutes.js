@@ -11,6 +11,7 @@ const {
   getQuizReview,
   startQuizByCode,
   getStudentHistory,
+  getHistoryDetail,
 } = require("../controllers/studentController");
 
 const { authenticate, isStudent } = require("../middleware/authMiddleware");
@@ -88,5 +89,12 @@ router.get(
   isStudent, 
   logActivity("Student: Get Student History"),
   getStudentHistory);
+
+router.get(
+  "/history/:session_id", // Parameter session_id
+  authenticate,
+  isStudent,
+  getHistoryDetail
+  );
  
 module.exports = router;

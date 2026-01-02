@@ -618,6 +618,92 @@ const getStudentHistory = async (req, res) => {
   }
 };
 
+const getHistoryDetail = async (req, res) => {
+  try {
+    const { session_id } = req.params;
+    
+    // Gunakan ID internal user
+    const userId = req.user.id || req.user.uid; 
+
+    // 1. Cek Sesi & Validasi Pemilik
+    const session = await QuizSession.findOne({
+      where: { id: session_id },
+      include: [
+        { model: Quiz, attributes: ['title', 'category'] }
+      ]
+    });
+
+    if (!session) {
+      return res.status(404).json({ message: "Sesi tidak ditemukan" });
+    }
+
+    // Pastikan yang akses adalah pemilik sesi (security)
+    if (session.user_id !== userId) {
+      return res.status(403).json({ message: "Anda tidak berhak melihat detail ini" });
+    }
+
+    // 2. Ambil Jawaban + Detail Soal
+    const answers = await SubmissionAnswer.findAll({
+      where: { quiz_session_id: session_id },
+      include: [
+        {
+          model: Question,
+          attributes: ['id', 'question_text', 'type', 'difficulty', 'correct_answer', 'options']
+        }
+      ]
+    });
+
+    // 3. Format Data untuk Flutter
+    const formattedDetails = answers.map(ans => {
+      const q = ans.Question;
+
+      // --- [FIX] CEK APAKAH SOAL MASIH ADA? ---
+      if (!q) {
+        // Jika soal sudah dihapus dari database, kembalikan data placeholder
+        // agar aplikasi tidak crash
+        return {
+          question_id: ans.question_id || "deleted",
+          question_text: "[Soal ini telah dihapus oleh guru]",
+          type: "unknown",
+          difficulty: "unknown",
+          options: [],
+          user_answer: ans.selected_answer,
+          correct_answer: "-",
+          is_correct: ans.is_correct ? true : false,
+        };
+      }
+      
+      return {
+        question_id: q.id,
+        question_text: q.question_text,
+        type: q.type, // 'multiple' / 'boolean'
+        difficulty: q.difficulty,
+        
+        // PENTING: Parse options jika bentuknya string JSON
+        options: typeof q.options === 'string' ? JSON.parse(q.options) : q.options,
+        
+        user_answer: ans.selected_answer,
+        correct_answer: q.correct_answer,
+        is_correct: ans.is_correct ? true : false,
+      };
+    });
+
+    return res.status(200).json({
+      message: "Detail history berhasil diambil",
+      data: {
+        quiz_title: session.Quiz ? session.Quiz.title : "Unknown",
+        score: session.score,
+        finished_at: session.ended_at,
+        details: formattedDetails
+      }
+    });
+
+  } catch (error) {
+    console.error("Get History Detail Error:", error);
+    return res.status(500).json({ message: error.message });
+  }
+};
+
  
 module.exports = {
   startQuiz,
@@ -630,4 +716,5 @@ module.exports = {
   getQuizReview,
   startQuizByCode,
   getStudentHistory,
+  getHistoryDetail,
 };
