@@ -10,6 +10,7 @@ const {
   getSessionHistory,
   getQuizReview,
   startQuizByCode,
+  getStudentHistory,
 } = require("../controllers/studentController");
 
 const { authenticate, isStudent } = require("../middleware/authMiddleware");
@@ -59,13 +60,13 @@ router.get(
   logActivity("Student: Generate Questions"),
   getGenerateQuestion
 );
-router.get(
-  "/history",
-  authenticate,
-  isStudent,
-  logActivity("Student: Get Session History"),
-  getSessionHistory
-);
+// router.get(
+//   "/history",
+//   authenticate,
+//   isStudent,
+//   logActivity("Student: Get Session History"),
+//   getSessionHistory
+// );
 router.get(
   "/review/:quiz_id",
   authenticate,
@@ -81,4 +82,11 @@ router.post(
   startQuizByCode
 );
 
+router.get(
+  "/history", 
+  authenticate, 
+  isStudent, 
+  logActivity("Student: Get Student History"),
+  getStudentHistory);
+ 
 module.exports = router;

@@ -552,6 +552,73 @@ const getQuizReview = async (req, res) => {
   }
 };
 
+const getStudentHistory = async (req, res) => {
+  try {
+    // Ambil ID dari token (req.user)
+    // Pastikan middleware auth sudah menempelkan uid/id
+    const userId = req.user.id || req.user.uid; 
+
+
+    console.log("🔍 Fetching history for user:", userId);
+
+    // 1. Ambil semua sesi kuis yang sudah COMPLETED
+    const sessions = await QuizSession.findAll({
+      where: { 
+        user_id: userId,
+        status: 'completed' 
+      },
+      include: [
+        { 
+          model: Quiz, 
+          attributes: ['title', 'category'] 
+        }
+      ],
+      order: [['ended_at', 'DESC']]
+    });
+
+    if (!sessions.length) {
+      // Return array kosong di dalam key 'data'
+      return res.status(200).json({ message: "No history found", data: [] });
+    }
+
+    // 2. Hitung Detail (Benar/Salah)
+    const historyData = await Promise.all(sessions.map(async (session) => {
+      const s = session.toJSON();
+
+      // Hitung jawaban benar
+      const correctCount = await SubmissionAnswer.count({
+        where: { quiz_session_id: s.id, is_correct: 1 }
+      });
+      
+      // Hitung jawaban salah
+      const incorrectCount = await SubmissionAnswer.count({
+        where: { quiz_session_id: s.id, is_correct: 0 }
+      });
+
+      return {
+        // Mapping field sesuai StudentHistoryModel di Flutter
+        id: s.id,
+        quiz_title: s.Quiz ? s.Quiz.title : "Unknown Quiz",
+        score: s.score,         // Nilai (0-100)
+        correct: correctCount,  // Jumlah Benar
+        incorrect: incorrectCount, // Jumlah Salah
+        finished_at: s.ended_at // Tanggal Selesai
+      };
+    }));
+
+    // 3. Kirim response dengan key 'data'
+    return res.status(200).json({ 
+      message: "Berhasil mendapatkan sejarah sesi quiz",
+      data: historyData // <--- PENTING: Key harus 'data' agar cocok dengan Flutter
+    });
+
+  } catch (error) {
+    console.error("Get History Error:", error);
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+ 
 module.exports = {
   startQuiz,
   getQuestions,
@@ -562,4 +629,5 @@ module.exports = {
   getSessionHistory,
   getQuizReview,
   startQuizByCode,
+  getStudentHistory,
 };
