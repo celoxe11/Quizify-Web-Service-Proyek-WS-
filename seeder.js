@@ -34,8 +34,9 @@ async function seedDatabase() {
       CREATE TABLE subscription (
         id_subs INT NOT NULL AUTO_INCREMENT,
         status VARCHAR(50) DEFAULT 'Free',
+        price DECIMAL(10, 2) DEFAULT 0,
         PRIMARY KEY (id_subs)
-      ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+      ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
       CREATE TABLE user (
         id VARCHAR(10) NOT NULL,
@@ -53,6 +54,18 @@ async function seedDatabase() {
         UNIQUE KEY email (email),
         KEY idx_firebase_uid (firebase_uid)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+      CREATE TABLE transaction (
+        id VARCHAR(10) NOT NULL,
+        user_id VARCHAR(10) NOT NULL,
+        subscription_id INT NOT NULL,
+        amount DECIMAL(10, 2) NOT NULL,
+        status ENUM('pending', 'success', 'failed') DEFAULT 'pending',
+        payment_method VARCHAR(50) DEFAULT 'manual',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
       CREATE TABLE quiz (
         id VARCHAR(10) NOT NULL,
@@ -140,7 +153,9 @@ async function seedDatabase() {
     // --- 2. SEED SUBSCRIPTIONS ---
     console.log("Seeding Reference Data (Subscriptions)...");
     await connection.query(
-      `INSERT INTO subscription (status) VALUES ('Free'), ('Premium')`
+      `INSERT INTO subscription (status, price) VALUES 
+       ('Free', 0), 
+       ('Premium', 50000)`
     );
 
     // --- 3. SYNC USERS FROM FIREBASE TO MYSQL ---
@@ -253,6 +268,20 @@ async function seedDatabase() {
       `);
       console.log("   Dummy users added successfully!");
     }
+
+    console.log("Seeding Transactions...");
+    await connection.query(`
+      INSERT INTO transaction (id, user_id, subscription_id, amount, status, payment_method, created_at) VALUES
+      -- TE001 Beli Premium (Sukses)
+      ('TR001', 'TE001', 2, 50000, 'success', 'Bank Transfer', '2024-11-20 10:00:00'),
+      
+      -- ST003 Beli Premium (Sukses)
+      ('TR002', 'ST003', 2, 50000, 'success', 'E-Wallet', '2024-12-05 14:00:00'),
+      
+      -- Ophelia (ST005) Mencoba Beli Premium (Pending)
+      ('TR003', 'ST005', 2, 50000, 'pending', 'Credit Card', NOW())
+    `);
+
 
     // Add dummy quizzes
     console.log("   Adding dummy quizzes...");

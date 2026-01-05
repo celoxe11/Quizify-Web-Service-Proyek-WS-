@@ -26,7 +26,9 @@ const {
   getDashboardAnalytics,
   toggleUserStatus,
   deleteQuiz,
-  updateUser
+  updateUser,
+  updateTierList,
+  getAllTransactions
 } = require("../controllers/adminController");
 
 const logActivity = require("../middleware/logActivity");
@@ -74,11 +76,18 @@ router.get(
 );
 
 router.post(
-  "/tierlist",
+  "/subscriptions",
   authenticate,
   logActivity("Admin: Create Tier List"),
   isAdmin,
   createTierList
+);
+router.put(
+  "/subscriptions/:id",
+  authenticate,
+  isAdmin,
+  logActivity("Admin: Update Subscription Tier"),
+  updateTierList
 );
 router.get(
   "/subscriptions",
@@ -205,5 +214,11 @@ router.patch(
   logActivity("Admin Change User Status"), // Jika middleware log aktif
   toggleUserStatus
 );
-
+router.get(
+  "/transactions",
+  authenticate,
+  isAdmin,
+  logActivity("Admin: Get Transaction"), 
+  getAllTransactions
+);
 module.exports = router;

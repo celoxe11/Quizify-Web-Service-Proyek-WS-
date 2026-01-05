@@ -13,6 +13,11 @@ const Subscription = sequelize.define("Subscription", {
     defaultValue: "Free",
     unique: true,
   },
+  price: {
+    type: DataTypes.DECIMAL(10, 2), // Menggunakan Decimal untuk harga
+    allowNull: false,
+    defaultValue: 0,
+  },
 }, {
   tableName: "subscription",
   timestamps: false,

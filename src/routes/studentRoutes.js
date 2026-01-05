@@ -12,6 +12,8 @@ const {
   startQuizByCode,
   getStudentHistory,
   getHistoryDetail,
+  getTransactionHistory,
+  buySubscription,
 } = require("../controllers/studentController");
 
 const { authenticate, isStudent } = require("../middleware/authMiddleware");
@@ -96,5 +98,17 @@ router.get(
   isStudent,
   getHistoryDetail
   );
+
+router.get(
+  "/transactions", 
+  authenticate, 
+  isStudent, 
+  getTransactionHistory);
+
+router.post(
+  "/buy-subscription", 
+  authenticate, 
+  isStudent, 
+  buySubscription);
  
 module.exports = router;

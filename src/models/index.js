@@ -8,6 +8,7 @@ const QuestionImage = require('./QuestionImage');
 const QuestionAccuracy = require('./QuestionAccuracy');
 const QuizSession = require('./QuizSession');
 const SubmissionAnswer = require('./SubmissionAnswer');
+const Transaction = require('./Transaction');
 
 // Define the association options to disable constraints
 const associationOptions = {
@@ -75,6 +76,14 @@ QuestionAccuracy.belongsTo(Question, { foreignKey: 'question_id', constraints: f
 Quiz.hasMany(QuestionAccuracy, { foreignKey: 'quiz_id', constraints: false });
 QuestionAccuracy.belongsTo(Quiz, { foreignKey: 'quiz_id', constraints: false });
 
+// 13. User <-> Transaction
+User.hasMany(Transaction, { foreignKey: 'user_id', constraints: false });
+Transaction.belongsTo(User, { foreignKey: 'user_id', constraints: false });
+
+// 14. Subscription <-> Transaction
+Subscription.hasMany(Transaction, { foreignKey: 'subscription_id', sourceKey: 'id_subs', constraints: false });
+Transaction.belongsTo(Subscription, { foreignKey: 'subscription_id', targetKey: 'id_subs', as: 'subscription_detail', constraints: false });
+
 module.exports = {
   sequelize,
   User,
@@ -86,4 +95,5 @@ module.exports = {
   QuestionAccuracy,
   QuizSession,
   SubmissionAnswer,
+  Transaction,
 };

@@ -704,6 +704,73 @@ const getHistoryDetail = async (req, res) => {
   }
 };
 
+const getTransactionHistory = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user.uid;
+
+    const transactions = await Transaction.findAll({
+      where: { user_id: userId },
+      include: [
+        { 
+          model: Subscription, 
+          as: 'subscription_detail', // Sesuai alias di index.js
+          attributes: ['status'] 
+        }
+      ],
+      order: [['created_at', 'DESC']]
+    });
+
+    // Formatting
+    const formatted = transactions.map(t => ({
+      id: t.id,
+      item: t.subscription_detail ? `Paket ${t.subscription_detail.status}` : 'Unknown Package',
+      amount: parseFloat(t.amount),
+      status: t.status,
+      method: t.payment_method,
+      date: t.created_at
+    }));
+
+    res.status(200).json({ data: formatted });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// SIMULASI BUY SUBSCRIPTION (Dummy Payment)
+const buySubscription = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user.uid;
+    const { subscription_id, payment_method } = req.body;
+
+    // 1. Cek User
+    const user = await User.findOne({ where: { id: userId } });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // 2. Generate Transaction ID (TR + Random)
+    const trId = "TR" + Math.floor(1000 + Math.random() * 9000);
+
+    // 3. Simpan Transaksi (Langsung Success ceritanya)
+    await Transaction.create({
+      id: trId,
+      user_id: userId,
+      subscription_id: subscription_id, // Misal 2 (Premium)
+      amount: 50000, // Harga ceritanya 50rb
+      status: 'success',
+      payment_method: payment_method || 'Manual'
+    });
+
+    // 4. UPDATE USER SUBSCRIPTION OTOMATIS
+    user.subscription_id = subscription_id;
+    await user.save();
+
+    res.status(200).json({ message: "Pembelian berhasil! Akun Anda sekarang Premium." });
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
  
 module.exports = {
   startQuiz,
@@ -717,4 +784,6 @@ module.exports = {
   startQuizByCode,
   getStudentHistory,
   getHistoryDetail,
+  getTransactionHistory,
+  buySubscription,
 };

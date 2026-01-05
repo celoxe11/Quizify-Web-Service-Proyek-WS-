@@ -11,7 +11,9 @@ const {
   QuestionImage,
   SubmissionAnswer,
   QuizSession,
+  Transaction
 } = require("../models/index");
+
 const { formatImageUrl } = require("../utils/helpers");
 const sequelize = require("../database/connection");
 const { Op } = require("sequelize");
@@ -118,16 +120,21 @@ const createTierList = async (req, res) => {
       "any.required": "Status wajib diisi",
       "string.empty": "Status tidak boleh kosong",
     }),
+    // [BARU] Validasi Harga
+    price: Joi.number().min(0).required().messages({
+      "any.required": "Harga wajib diisi",
+      "number.min": "Harga tidak boleh minus",
+    }),
   });
 
   const { error, value } = schema.validate(req.body);
   if (error) return res.status(400).json({ message: error.message });
 
   try {
-    // Trim ulang biar benar-benar bersih
     const statusTrimmed = value.status.trim();
+    const priceValue = value.price;
 
-    // Cek kalau status sudah ada, hindari duplikat
+    // Cek duplikat nama
     const existing = await Subscription.findOne({
       where: { status: statusTrimmed },
     });
@@ -135,24 +142,74 @@ const createTierList = async (req, res) => {
       return res.status(409).json({ message: "Status subscription sudah ada" });
     }
 
-    console.log("Status yang akan dibuat:", statusTrimmed);
-
-    // Buat subscription dengan status yang sudah di-trim
+    // [FIX] Simpan status DAN price
     const newSubscription = await Subscription.create({
       status: statusTrimmed,
+      price: priceValue,
     });
-
-    console.log("Subscription baru:", newSubscription.toJSON());
 
     return res.status(201).json({
       message: "Subscription berhasil dibuat",
       data: newSubscription,
     });
   } catch (error) {
-    console.error("Error saat membuat subscription:", error);
+    console.error("Error create subscription:", error);
     return res.status(500).json({ message: error.message });
   }
 };
+
+const updateTierList = async (req, res) => {
+  // Ambil ID dari parameter URL (/subscriptions/:id)
+  const { id } = req.params; 
+
+  const schema = Joi.object({
+    status: Joi.string().trim().min(1).required(),
+    price: Joi.number().min(0).required(),
+  });
+
+  const { error, value } = schema.validate(req.body);
+  if (error) return res.status(400).json({ message: error.message });
+
+  try {
+    // Cari Subscription berdasarkan Primary Key (id_subs)
+    const subscription = await Subscription.findByPk(id);
+
+    if (!subscription) {
+      return res.status(404).json({ message: "Subscription tier tidak ditemukan" });
+    }
+
+    const statusTrimmed = value.status.trim();
+
+    // Cek duplikat nama (Kecuali punya diri sendiri)
+    // "Cari yang namanya sama TAPI id-nya bukan id yang sedang diedit"
+    const duplicateCheck = await Subscription.findOne({
+      where: { 
+        status: statusTrimmed,
+        id_subs: { [Op.ne]: id } // Op.ne = Not Equal
+      }
+    });
+
+    if (duplicateCheck) {
+      return res.status(409).json({ message: "Nama status sudah digunakan oleh tier lain" });
+    }
+
+    // Update Data
+    subscription.status = statusTrimmed;
+    subscription.price = value.price;
+    await subscription.save();
+
+    return res.status(200).json({
+      message: "Subscription berhasil diupdate",
+      data: subscription,
+    });
+
+  } catch (error) {
+    console.error("Error update subscription:", error);
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+
 
 // Ambil semua tier subscription
 const getTierList = async (req, res) => {
@@ -1324,9 +1381,23 @@ const updateUser = async (req, res) => {
   }
 };
 
+const getAllTransactions = async (req, res) => {
+  try {
+    const transactions = await Transaction.findAll({
+      order: [['created_at', 'DESC']]
+    });
+    
+    // Pastikan return JSON yang strukturnya sesuai dengan model Flutter di atas
+    res.status(200).json({ data: transactions });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   getLog,
   createTierList,
+  updateTierList,
   getTierList,
   getAllQuestions,
   getAllQuizzes,
@@ -1347,4 +1418,5 @@ module.exports = {
   toggleUserStatus,
   deleteQuiz,
   updateUser,
+  getAllTransactions,
 };
