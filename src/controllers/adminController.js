@@ -157,11 +157,8 @@ const createTierList = async (req, res) => {
 // Ambil semua tier subscription
 const getTierList = async (req, res) => {
   try {
-    const subscriptions = await Subscription.findAll({
-      attributes: ["id_subs", "status"],
-    });
-
-    return res.status(200).json(subscriptions);
+    const subs = await Subscription.findAll();
+    return res.status(200).json({ data: subs });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -1285,6 +1282,48 @@ const toggleUserStatus = async (req, res) => {
   }
 };
 
+// Update User (Role & Subscription)
+const updateUser = async (req, res) => {
+  const admin = require("firebase-admin"); 
+  console.log("📥 [Backend] Masuk Update User");
+  console.log("🔑 ID Params:", req.params.id);
+  console.log("📦 Body:", req.body);
+  try {
+    const { id } = req.params;
+    const { role, subscription_id } = req.body;
+
+    const user = await User.findOne({ where: { id } });
+    if (!user) {
+      return res.status(404).json({ message: "User tidak ditemukan" });
+    }
+
+    // Cegah edit Role Admin Utama (Optional security)
+    if (user.role === 'admin' && role !== 'admin') {
+      return res.status(403).json({ message: "Tidak dapat mengubah role Admin utama" });
+    }
+
+    // Update Data
+    if (role) user.role = role;
+    if (subscription_id) user.subscription_id = subscription_id;
+
+    await user.save();
+
+    // Jika Role berubah, update juga Custom Claims Firebase (Penting!)
+    if (user.firebase_uid) {
+       await admin.auth().setCustomUserClaims(user.firebase_uid, { role: user.role });
+    }
+
+    return res.status(200).json({ 
+      message: `User ${user.name} berhasil diperbarui`,
+      user
+    });
+
+  } catch (error) {
+    console.error("Update User Error:", error);
+    return res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   getLog,
   createTierList,
@@ -1307,4 +1346,5 @@ module.exports = {
   getDashboardAnalytics,
   toggleUserStatus,
   deleteQuiz,
+  updateUser,
 };

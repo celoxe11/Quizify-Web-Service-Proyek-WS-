@@ -26,6 +26,7 @@ const {
   getDashboardAnalytics,
   toggleUserStatus,
   deleteQuiz,
+  updateUser
 } = require("../controllers/adminController");
 
 const logActivity = require("../middleware/logActivity");
@@ -80,9 +81,9 @@ router.post(
   createTierList
 );
 router.get(
-  "/tierlist",
+  "/subscriptions",
   authenticate,
-  logActivity("Admin: View Tier List"),
+  logActivity("Admin: get Subscription Tier List"),
   isAdmin,
   getTierList
 );
@@ -182,7 +183,13 @@ router.get(
   logActivity("Admin: Get All Users"),
   getAllUsers
 );
-
+router.put(
+  "/users/:id",
+  authenticate,
+  isAdmin,
+  logActivity("Admin: Update User"),
+  updateUser
+);
 router.get(
   "/analytics",
   authenticate,
