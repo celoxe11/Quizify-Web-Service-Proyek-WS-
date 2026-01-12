@@ -21,7 +21,7 @@ const getPublicQuiz = async (req, res) => {
 const updateProfile = async (req, res) => {
   try {
     const { id } = req.params; // The MySQL User ID (e.g., ST001)
-    const { name, username } = req.body;
+    const { name, username, email } = req.body;
 
     // 1. Find User
     const user = await User.findByPk(id);
@@ -37,8 +37,9 @@ const updateProfile = async (req, res) => {
     }
 
     // 3. Update
-    user.name = name || user.name;
+    user.name = name || user.name ;
     user.username = username || user.username;
+    user.email = email || user.email;
 
     await user.save();
 
