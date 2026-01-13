@@ -51,7 +51,37 @@ const updateProfile = async (req, res) => {
   }
 };
 
+const updatePassword = async (req, res) => {
+  // Implementation for updating password
+  try {
+    const { id } = req.params;
+    const { oldPassword, newPassword, confirmPassword } = req.body;
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ message: "Passwords do not match" });
+    }
+
+    const user = await User.findByPk(id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const isMatch = await user.comparePassword(oldPassword);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Old password is incorrect" });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    res.json({ message: "Password updated successfully" });
+  } catch (error) {
+    res.json({ message: `Failed to update password - ${error.message}` });
+  }
+}
+
 module.exports = {
   getPublicQuiz,
   updateProfile,
+  updatePassword,
 };

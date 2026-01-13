@@ -5,6 +5,7 @@ const {
   SubmissionAnswer,
   User,
 } = require("../models");
+const { get } = require("../routes/studentRoutes");
 const fetchGeminiEvaluation = require("../utils/fetchGeminiEvaluation");
 
 // Helper function to pad numbers with leading zeros
@@ -393,6 +394,111 @@ const submitQuiz = async (req, res) => {
       score_akhir: score,
     });
   } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const getAllQuizzes = async (req, res) => {
+  try {
+    const quizzes = await Quiz.findAll({
+      include: [
+        {
+          model: User,
+          attributes: ["name"], // Kita cuma butuh namanya
+        },
+      ],
+      order: [["created_at", "DESC"]],
+    });
+
+    // Format data agar sesuai dengan QuizModel Flutter (Flattening)
+    const formattedQuizzes = quizzes.map((quiz) => {
+      // Ubah ke plain object
+      const q = quiz.get({ plain: true });
+
+      return {
+        ...q, // Copy semua field quiz (id, title, status, dll)
+
+        // [PENTING] Mapping dari Nested Object ke Flat Field
+        // Flutter QuizModel mencari: json['creator_name']
+        creator_name: q.User ? q.User.name : "Unknown Teacher",
+      };
+    });
+
+    return res.status(200).json(formattedQuizzes);
+  } catch (error) {
+    console.error("Get All Quizzes Error:", error);
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+const getQuizDetail = async (req, res) => {
+  try {
+    // 1. Validasi Input
+    const { error, value } = teacherSchema.idSchema.validate({
+      id: req.params.quiz_id,
+    });
+    if (error)
+      return res.status(400).json({ message: error.details[0].message });
+
+    const quiz_id = value.id;
+
+    // 2. Ambil Semua Pertanyaan
+    const questions = await Question.findAll({
+      where: { quiz_id },
+      attributes: [
+        "id",
+        "type",
+        "difficulty",
+        "question_text",
+        "correct_answer",
+        "options",
+        "created_at",
+        "updated_at",
+      ],
+    });
+
+    // 3. [LOGIC BARU] Hitung Statistik & Gambar untuk Setiap Pertanyaan
+    // Kita pakai Promise.all agar prosesnya berjalan paralel (lebih cepat)
+    const questionsWithStats = await Promise.all(
+      questions.map(async (question) => {
+        const q = question.toJSON(); // Ubah ke object biasa agar bisa ditambah field baru
+
+        // A. Hitung Jawaban BENAR (is_correct = 1)
+        const correctCount = await SubmissionAnswer.count({
+          where: {
+            question_id: q.id,
+            is_correct: true, // atau 1
+          },
+        });
+
+        // B. Hitung Jawaban SALAH (is_correct = 0)
+        const incorrectCount = await SubmissionAnswer.count({
+          where: {
+            question_id: q.id,
+            is_correct: false, // atau 0
+          },
+        });
+
+        // C. Ambil Gambar (Logic lama)
+        const image = await QuestionImage.findOne({
+          where: { question_id: q.id },
+        });
+
+        // D. Masukkan data ke object response
+        q.correct_answers = correctCount; // <-- INI YANG DIBACA FLUTTER
+        q.incorrect_answers = incorrectCount; // <-- INI YANG DIBACA FLUTTER
+        q.image_url = formatImageUrl(req, image?.image_url);
+
+        return q;
+      })
+    );
+
+    res.status(200).json({
+      message: `Berhasil mendapatkan detail kuis`,
+      questions: questionsWithStats,
+    });
+  } catch (error) {
+    console.error("Error getQuizDetail:", error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -821,6 +927,8 @@ module.exports = {
   answerQuestion,
   updateAnswer,
   submitQuiz,
+  getAllQuizzes,
+  getQuizDetail,
   getGeminiEvaluation,
   getSessionHistory,
   getQuizReview,

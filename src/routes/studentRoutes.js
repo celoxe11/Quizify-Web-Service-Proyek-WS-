@@ -6,6 +6,8 @@ const {
   answerQuestion,
   updateAnswer,
   submitQuiz,
+  getAllQuizzes,
+  getQuizDetail,
   getGeminiEvaluation,
   getSessionHistory,
   getQuizReview,
@@ -48,6 +50,20 @@ router.put(
   isStudent,
   logActivity("Student: Update answer"),
   updateAnswer
+);
+router.get(
+  "/quizzes",
+  authenticate,
+  isStudent,
+  logActivity("Student: Get All Quizzes"),
+  getAllQuizzes
+);
+router.get(
+  "/quiz/:quiz_id",
+  authenticate,
+  isStudent,
+  logActivity("Student: Get Quiz Detail"),
+  getQuizDetail
 );
 router.post(
   "/submitquiz",
