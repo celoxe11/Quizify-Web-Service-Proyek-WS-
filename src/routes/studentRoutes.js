@@ -6,7 +6,7 @@ const {
   answerQuestion,
   updateAnswer,
   submitQuiz,
-  getGenerateQuestion,
+  getGeminiEvaluation,
   getSessionHistory,
   getQuizReview,
   startQuizByCode,
@@ -56,12 +56,12 @@ router.post(
   logActivity("Student: Submit quiz"),
   submitQuiz
 );
-router.get(
-  "/question/generate",
-  authenticate,
-  isStudent,
-  logActivity("Student: Generate Questions"),
-  getGenerateQuestion
+router.post(
+  "/question/gemini-evaluation",
+  // authenticate,
+  // isStudent,
+  // logActivity("Student: Ask Gemini for Evaluation"),
+  getGeminiEvaluation
 );
 // router.get(
 //   "/history",
