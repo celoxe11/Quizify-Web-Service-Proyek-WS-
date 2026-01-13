@@ -2,32 +2,42 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const Joi = require("joi");
 
-const {User, Subscription, UserLog, Question, Quiz, QuestionImage, SubmissionAnswer, QuizSession} = require("../models/index");
-const { formatImageUrl } = require("../utils/helpers");
-const sequelize = require("../config/db");
-const { Op } = require("sequelize");
+const {
+  User,
+  Subscription,
+  UserLog,
+  Question,
+  Quiz,
+  QuestionImage,
+  SubmissionAnswer,
+  QuizSession,
+  Transaction
+} = require("../models/index");
 
+const { formatImageUrl } = require("../utils/helpers");
+const sequelize = require("../database/connection");
+const { Op } = require("sequelize");
 
 const teacherSchema = {
   // 1. Validasi untuk ID (dipakai di delete/get detail)
   idSchema: Joi.object({
-    id: Joi.string().required()
+    id: Joi.string().required(),
   }),
 
   // 2. Validasi untuk Generate Question (OpenTDB)
   generateQuestionSchema: Joi.object({
     quiz_id: Joi.string().required(),
-    type: Joi.string().valid('multiple', 'boolean').optional(),
-    difficulty: Joi.string().valid('easy', 'medium', 'hard').optional(),
+    type: Joi.string().valid("multiple", "boolean").optional(),
+    difficulty: Joi.string().valid("easy", "medium", "hard").optional(),
     category: Joi.string().optional(),
-    amount: Joi.number().integer().min(1).max(50).optional()
+    amount: Joi.number().integer().min(1).max(50).optional(),
   }),
 
   // 3. Validasi untuk Create Question Manual
   questionSchema: Joi.object({
     quiz_id: Joi.string().required(),
-    type: Joi.string().valid('multiple', 'boolean').required(),
-    difficulty: Joi.string().valid('easy', 'medium', 'hard').required(),
+    type: Joi.string().valid("multiple", "boolean").required(),
+    difficulty: Joi.string().valid("easy", "medium", "hard").required(),
     question_text: Joi.string().required(),
     correct_answer: Joi.string().required(),
     incorrect_answers: Joi.array().items(Joi.string()).required(),
@@ -41,7 +51,7 @@ const teacherSchema = {
     question_text: Joi.string().optional(),
     correct_answer: Joi.string().optional(),
     incorrect_answers: Joi.array().items(Joi.string()).optional(),
-  })
+  }),
 };
 
 const checkQuizOwnership = async (QuizModel, quizId, userId) => {
@@ -59,13 +69,16 @@ const checkQuizOwnership = async (QuizModel, quizId, userId) => {
     // Jika logic ini untuk ADMIN, Admin biasanya boleh edit punya siapa saja.
     // Jadi kita bisa skip pengecekan created_by jika perlu.
     // Tapi untuk memuaskan kodingan yang ada, ini logic standarnya:
-    
+
     // Cek apakah yang edit adalah pembuat quiz (Owner)
-    if (quiz.created_by !== userId && user.role !== 'admin') {
-        // OPSIONAL: Jika kamu ingin Admin bisa edit punya orang lain,
-        // kamu bisa tambahkan logic di sini (misal cek role req.user.role === 'admin')
-        // Tapi kodingan di bawah ini defaultnya "Hanya Pembuat yang bisa edit"
-        return { error: "Anda tidak memiliki izin untuk mengedit kuis ini", code: 403 };
+    if (quiz.created_by !== userId && user.role !== "admin") {
+      // OPSIONAL: Jika kamu ingin Admin bisa edit punya orang lain,
+      // kamu bisa tambahkan logic di sini (misal cek role req.user.role === 'admin')
+      // Tapi kodingan di bawah ini defaultnya "Hanya Pembuat yang bisa edit"
+      return {
+        error: "Anda tidak memiliki izin untuk mengedit kuis ini",
+        code: 403,
+      };
     }
 
     return { quiz }; // Berhasil
@@ -74,13 +87,11 @@ const checkQuizOwnership = async (QuizModel, quizId, userId) => {
   }
 };
 
-
 // Ambil log aktivitas user (dengan relasi ke User)
 const getLog = async (req, res) => {
   const { user_id } = req.query;
 
   try {
-
     const logs = await UserLog.findAll({
       where: user_id ? { user_id } : {},
       order: [["created_at", "DESC"]],
@@ -109,46 +120,102 @@ const createTierList = async (req, res) => {
       "any.required": "Status wajib diisi",
       "string.empty": "Status tidak boleh kosong",
     }),
+    // [BARU] Validasi Harga
+    price: Joi.number().min(0).required().messages({
+      "any.required": "Harga wajib diisi",
+      "number.min": "Harga tidak boleh minus",
+    }),
   });
 
   const { error, value } = schema.validate(req.body);
   if (error) return res.status(400).json({ message: error.message });
 
   try {
-    // Trim ulang biar benar-benar bersih
     const statusTrimmed = value.status.trim();
+    const priceValue = value.price;
 
-    // Cek kalau status sudah ada, hindari duplikat
-    const existing = await Subscription.findOne({ where: { status: statusTrimmed } });
+    // Cek duplikat nama
+    const existing = await Subscription.findOne({
+      where: { status: statusTrimmed },
+    });
     if (existing) {
       return res.status(409).json({ message: "Status subscription sudah ada" });
     }
 
-    console.log('Status yang akan dibuat:', statusTrimmed);
-
-    // Buat subscription dengan status yang sudah di-trim
-    const newSubscription = await Subscription.create({ status: statusTrimmed });
-
-    console.log('Subscription baru:', newSubscription.toJSON());
+    // [FIX] Simpan status DAN price
+    const newSubscription = await Subscription.create({
+      status: statusTrimmed,
+      price: priceValue,
+    });
 
     return res.status(201).json({
       message: "Subscription berhasil dibuat",
       data: newSubscription,
     });
   } catch (error) {
-    console.error('Error saat membuat subscription:', error);
+    console.error("Error create subscription:", error);
     return res.status(500).json({ message: error.message });
   }
 };
 
+const updateTierList = async (req, res) => {
+  // Ambil ID dari parameter URL (/subscriptions/:id)
+  const { id } = req.params; 
+
+  const schema = Joi.object({
+    status: Joi.string().trim().min(1).required(),
+    price: Joi.number().min(0).required(),
+  });
+
+  const { error, value } = schema.validate(req.body);
+  if (error) return res.status(400).json({ message: error.message });
+
+  try {
+    // Cari Subscription berdasarkan Primary Key (id_subs)
+    const subscription = await Subscription.findByPk(id);
+
+    if (!subscription) {
+      return res.status(404).json({ message: "Subscription tier tidak ditemukan" });
+    }
+
+    const statusTrimmed = value.status.trim();
+
+    // Cek duplikat nama (Kecuali punya diri sendiri)
+    // "Cari yang namanya sama TAPI id-nya bukan id yang sedang diedit"
+    const duplicateCheck = await Subscription.findOne({
+      where: { 
+        status: statusTrimmed,
+        id_subs: { [Op.ne]: id } // Op.ne = Not Equal
+      }
+    });
+
+    if (duplicateCheck) {
+      return res.status(409).json({ message: "Nama status sudah digunakan oleh tier lain" });
+    }
+
+    // Update Data
+    subscription.status = statusTrimmed;
+    subscription.price = value.price;
+    await subscription.save();
+
+    return res.status(200).json({
+      message: "Subscription berhasil diupdate",
+      data: subscription,
+    });
+
+  } catch (error) {
+    console.error("Error update subscription:", error);
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+
+
 // Ambil semua tier subscription
 const getTierList = async (req, res) => {
   try {
-    const subscriptions = await Subscription.findAll({
-      attributes: ["id_subs", "status"],
-    });
-
-    return res.status(200).json(subscriptions);
+    const subs = await Subscription.findAll();
+    return res.status(200).json({ data: subs });
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -161,7 +228,49 @@ const getAllQuestions = async (req, res) => {
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
-}
+};
+
+const deleteQuiz = async (req, res) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const { error, value } = teacherSchema.idSchema.validate(req.body);
+    if (error) {
+      await transaction.rollback();
+      return res.status(400).json({ message: error.details[0].message });
+    }
+    const quiz_id = value.id;
+    const userId = req.user.id;
+
+    // Delete related question images
+    const existingQuestionImages = await QuestionImage.findAll({
+      include: [
+        {
+          model: Question,
+          where: { quiz_id: quiz_id },
+          required: true,
+        },
+      ],
+    });
+    for (const img of existingQuestionImages) {
+      // Delete image file from server
+      const imagePath = img.image_url.replace(`/uploads/${userId}/`, "");
+      const fullPath = `./src/uploads/${userId}/${imagePath}`;
+      if (fs.existsSync(fullPath)) {
+        fs.unlinkSync(fullPath);
+      }
+      await QuestionImage.destroy({ where: { id: img.id }, transaction });
+    }
+    // Delete questions
+    await Question.destroy({ where: { quiz_id: quiz_id }, transaction });
+    // Delete quiz
+    await Quiz.destroy({ where: { id: quiz_id }, transaction });
+    await transaction.commit();
+    res.status(200).json({ message: "Successfully delete quiz" });
+  } catch (error) {
+    await transaction.rollback();
+    res.status(500).json({ message: error.message });
+  }
+};
 
 const getAllQuizzes = async (req, res) => {
   try {
@@ -182,10 +291,10 @@ const getAllQuizzes = async (req, res) => {
 
       return {
         ...q, // Copy semua field quiz (id, title, status, dll)
-        
+
         // [PENTING] Mapping dari Nested Object ke Flat Field
         // Flutter QuizModel mencari: json['creator_name']
-        creator_name: q.User ? q.User.name : "Unknown Teacher" 
+        creator_name: q.User ? q.User.name : "Unknown Teacher",
       };
     });
 
@@ -575,18 +684,12 @@ const getQuizDetail = async (req, res) => {
     const { error, value } = teacherSchema.idSchema.validate({
       id: req.params.quiz_id,
     });
-    if (error) return res.status(400).json({ message: error.details[0].message });
+    if (error)
+      return res.status(400).json({ message: error.details[0].message });
 
     const quiz_id = value.id;
 
-    // 2. Cek Quiz Ada/Ownership (Gunakan helper checkQuizOwnership yg sudah ada)
-    // Note: Utk Admin biasanya boleh akses semua, sesuaikan logic ownership-nya.
-    const ownershipCheck = await checkQuizOwnership(Quiz, quiz_id, req.user.id, req.user.role); 
-    if (ownershipCheck.error) {
-      return res.status(ownershipCheck.code).json({ message: ownershipCheck.error });
-    }
-
-    // 3. Ambil Semua Pertanyaan
+    // 2. Ambil Semua Pertanyaan
     const questions = await Question.findAll({
       where: { quiz_id },
       attributes: [
@@ -597,49 +700,50 @@ const getQuizDetail = async (req, res) => {
         "correct_answer",
         "options",
         "created_at",
-        "updated_at"
+        "updated_at",
       ],
     });
 
-    // 4. [LOGIC BARU] Hitung Statistik & Gambar untuk Setiap Pertanyaan
+    // 3. [LOGIC BARU] Hitung Statistik & Gambar untuk Setiap Pertanyaan
     // Kita pakai Promise.all agar prosesnya berjalan paralel (lebih cepat)
-    const questionsWithStats = await Promise.all(questions.map(async (question) => {
-      const q = question.toJSON(); // Ubah ke object biasa agar bisa ditambah field baru
+    const questionsWithStats = await Promise.all(
+      questions.map(async (question) => {
+        const q = question.toJSON(); // Ubah ke object biasa agar bisa ditambah field baru
 
-      // A. Hitung Jawaban BENAR (is_correct = 1)
-      const correctCount = await SubmissionAnswer.count({
-        where: { 
-          question_id: q.id, 
-          is_correct: true // atau 1
-        }
-      });
+        // A. Hitung Jawaban BENAR (is_correct = 1)
+        const correctCount = await SubmissionAnswer.count({
+          where: {
+            question_id: q.id,
+            is_correct: true, // atau 1
+          },
+        });
 
-      // B. Hitung Jawaban SALAH (is_correct = 0)
-      const incorrectCount = await SubmissionAnswer.count({
-        where: { 
-          question_id: q.id, 
-          is_correct: false // atau 0
-        }
-      });
+        // B. Hitung Jawaban SALAH (is_correct = 0)
+        const incorrectCount = await SubmissionAnswer.count({
+          where: {
+            question_id: q.id,
+            is_correct: false, // atau 0
+          },
+        });
 
-      // C. Ambil Gambar (Logic lama)
-      const image = await QuestionImage.findOne({
-        where: { question_id: q.id },
-      });
+        // C. Ambil Gambar (Logic lama)
+        const image = await QuestionImage.findOne({
+          where: { question_id: q.id },
+        });
 
-      // D. Masukkan data ke object response
-      q.correct_answers = correctCount;   // <-- INI YANG DIBACA FLUTTER
-      q.incorrect_answers = incorrectCount; // <-- INI YANG DIBACA FLUTTER
-      q.image_url = formatImageUrl(req, image?.image_url);
+        // D. Masukkan data ke object response
+        q.correct_answers = correctCount; // <-- INI YANG DIBACA FLUTTER
+        q.incorrect_answers = incorrectCount; // <-- INI YANG DIBACA FLUTTER
+        q.image_url = formatImageUrl(req, image?.image_url);
 
-      return q;
-    }));
+        return q;
+      })
+    );
 
     res.status(200).json({
-      message: `Berhasil mendapatkan detail kuis ${ownershipCheck.quiz.title}`,
+      message: `Berhasil mendapatkan detail kuis`,
       questions: questionsWithStats,
     });
-
   } catch (error) {
     console.error("Error getQuizDetail:", error);
     res.status(500).json({ message: error.message });
@@ -655,14 +759,6 @@ const getQuizResult = async (req, res) => {
       return res.status(400).json({ message: error.details[0].message });
 
     const quiz_id = value.id;
-
-    // Check quiz ownership
-    const ownershipCheck = await checkQuizOwnership(Quiz, quiz_id, req.user.id);
-    if (ownershipCheck.error) {
-      return res
-        .status(ownershipCheck.code)
-        .json({ message: ownershipCheck.error });
-    }
 
     // Get quiz sessions
     const quizSessions = await QuizSession.findAll({
@@ -687,6 +783,7 @@ const getQuizResult = async (req, res) => {
 
     // Format results
     const results = quizSessions.map((session) => ({
+      student_id: session.User.id,
       student: session.User.name,
       score: session.score,
       started_at: session.started_at.toISOString(),
@@ -694,7 +791,7 @@ const getQuizResult = async (req, res) => {
     }));
 
     res.status(200).json({
-      message: `Berhasil mendapatkan hasil kuis ${ownershipCheck.quiz.title}`,
+      message: `Berhasil mendapatkan hasil kuis`,
       results,
     });
   } catch (error) {
@@ -704,31 +801,45 @@ const getQuizResult = async (req, res) => {
 
 const getStudentsAnswers = async (req, res) => {
   try {
-    const { student_id, quiz_id } = req.body;
+    const { student_id, quiz_id } = req.params;
 
-    const sessions = await QuizSession.findAll({
+    const session = await QuizSession.findOne({
       where: {
         user_id: student_id,
         quiz_id,
       },
     });
 
-    if (!sessions || sessions.length === 0) {
+    if (!session) {
       return res
         .status(404)
         .json({ message: "Tidak ada sesi quiz yang ditemukan" });
     }
 
-    // Get answers for all sessions
+    // Get answers for the session
     const answers = await SubmissionAnswer.findAll({
       where: {
-        quiz_session_id: sessions.map((session) => session.id),
+        quiz_session_id: session.id,
       },
+      include: [
+        {
+          model: Question,
+          required: false,
+          attributes: [
+            "id",
+            "type",
+            "difficulty",
+            "question_text",
+            "correct_answer",
+            "options",
+          ],
+        },
+      ],
     });
 
     res.status(200).json({
       message: "Berhasil mendapatkan jawaban siswa",
-      sessions: sessions,
+      session: session,
       answers: answers,
     });
   } catch (error) {
@@ -975,14 +1086,21 @@ const endQuiz = async (req, res) => {
 
 const getAllUsers = async (req, res) => {
   try {
-
     const users = await User.findAll({
       // 1. WAJIB: Masukkan 'subscription_id' ke dalam attributes
-      attributes: ["id", "name", "username", "email", "role", "is_active", "subscription_id"],
+      attributes: [
+        "id",
+        "name",
+        "username",
+        "email",
+        "role",
+        "is_active",
+        "subscription_id",
+      ],
       include: [
         {
           model: Subscription,
-          as: 'subscription', 
+          as: "subscription",
           attributes: ["status"],
         },
       ],
@@ -993,23 +1111,23 @@ const getAllUsers = async (req, res) => {
     // Kita harus "meratakan" objek agar sesuai dengan UserModel di Flutter
     const formattedUsers = users.map((user) => {
       // Ubah instance Sequelize jadi plain object
-      const u = user.get({ plain: true }); 
-      
+      const u = user.get({ plain: true });
+
       return {
         id: u.id,
         name: u.name,
         username: u.username,
         email: u.email,
         role: u.role,
-        
+
         // Paksa is_active jadi angka 1 atau 0 (Integer) untuk menghindari error 'String is not subtype of Int'
         is_active: u.is_active ? 1 : 0,
 
         subscription_id: u.subscription_id,
-        
+
         // Ambil status dari nested object, taruh di root json
         // Cek apakah u.Subscription (kapital S) atau u.subscription (kecil) tergantung definisi model kamu
-        subscription_status: u.subscription ? u.subscription.status : 'Free'
+        subscription_status: u.subscription ? u.subscription.status : "Free",
       };
     });
 
@@ -1017,9 +1135,8 @@ const getAllUsers = async (req, res) => {
     // Flutter AdminApiService mengharapkan: response.data['data']
     return res.status(200).json({
       success: true,
-      data: formattedUsers 
+      data: formattedUsers,
     });
-
   } catch (error) {
     console.error("=========================================");
     console.error("🔥 ERROR SAAT GET ALL USERS:");
@@ -1042,24 +1159,26 @@ const getDashboardAnalytics = async (req, res) => {
     // =======================================================
     const teacherStats = await Quiz.findAll({
       attributes: [
-        'created_by',
-        'category',
-        [sequelize.fn('COUNT', sequelize.col('Quiz.id')), 'count']
+        "created_by",
+        "category",
+        [sequelize.fn("COUNT", sequelize.col("Quiz.id")), "count"],
       ],
-      include: [{ 
-        model: User, 
-        attributes: ['name'],
-        where: { role: 'teacher' }
-      }],
-      group: ['created_by', 'category', 'User.id', 'User.name'],
+      include: [
+        {
+          model: User,
+          attributes: ["name"],
+          where: { role: "teacher" },
+        },
+      ],
+      group: ["created_by", "category", "User.id", "User.name"],
     });
 
     // Formatting data agar mudah dibaca Flutter
     // Hasil: { "Nama Guru": { "Math": 5, "Science": 2 } }
     const teacherTrends = {};
-    teacherStats.forEach(stat => {
+    teacherStats.forEach((stat) => {
       const teacherName = stat.User.name;
-      const category = stat.category || 'Uncategorized';
+      const category = stat.category || "Uncategorized";
       const count = parseInt(stat.dataValues.count);
 
       if (!teacherTrends[teacherName]) {
@@ -1075,19 +1194,21 @@ const getDashboardAnalytics = async (req, res) => {
     // 2. DATA STUDENT PARTICIPATION (Chart 2)
     // Total Siswa vs Yang sudah pernah submit kuis
     // =======================================================
-    const totalStudents = await User.count({ where: { role: 'student', is_active: 1 } });
-    
+    const totalStudents = await User.count({
+      where: { role: "student", is_active: 1 },
+    });
+
     // Hitung siswa unik yang sudah pernah menyelesaikan setidaknya 1 kuis
     const activeStudents = await QuizSession.count({
       distinct: true,
-      col: 'user_id',
-      where: { status: 'completed' }
+      col: "user_id",
+      where: { status: "completed" },
     });
 
     const studentParticipation = {
       total: totalStudents,
       active: activeStudents,
-      pending: totalStudents - activeStudents // Siswa yang belum pernah mengerjakan
+      pending: totalStudents - activeStudents, // Siswa yang belum pernah mengerjakan
     };
 
     // =======================================================
@@ -1096,60 +1217,66 @@ const getDashboardAnalytics = async (req, res) => {
     // =======================================================
     // Kita cari pertanyaan yang sudah pernah dijawab
     const questionStatsRaw = await Question.findAll({
-      attributes: ['id', 'question_text'], // Ambil ID dan Teks
+      attributes: ["id", "question_text"], // Ambil ID dan Teks
       limit: 10, // Ambil sampel 10 soal saja untuk grafik
     });
 
     // Kita hitung manual akurasinya (karena count di include kadang berat)
-    const quizFlow = await Promise.all(questionStatsRaw.map(async (q) => {
-      const correct = await SubmissionAnswer.count({ where: { question_id: q.id, is_correct: 1 } });
-      const wrong = await SubmissionAnswer.count({ where: { question_id: q.id, is_correct: 0 } });
-      const total = correct + wrong;
-      
-      const accuracy = total === 0 ? 0 : Math.round((correct / total) * 100);
-      
-      return {
-        question_id: q.id,
-        label: `Q${q.id.slice(-3)}`, // Label pendek misal Q001
-        difficulty: 100 - accuracy, // Semakin kecil akurasi, semakin sulit (Difficulty naik)
-        failures: wrong
-      };
-    }));
+    const quizFlow = await Promise.all(
+      questionStatsRaw.map(async (q) => {
+        const correct = await SubmissionAnswer.count({
+          where: { question_id: q.id, is_correct: 1 },
+        });
+        const wrong = await SubmissionAnswer.count({
+          where: { question_id: q.id, is_correct: 0 },
+        });
+        const total = correct + wrong;
+
+        const accuracy = total === 0 ? 0 : Math.round((correct / total) * 100);
+
+        return {
+          question_id: q.id,
+          label: `Q${q.id.slice(-3)}`, // Label pendek misal Q001
+          difficulty: 100 - accuracy, // Semakin kecil akurasi, semakin sulit (Difficulty naik)
+          failures: wrong,
+        };
+      })
+    );
 
     // =======================================================
     // 4. USER ACTIVITY (Chart 4) - Last 7 Days
     // Register vs Login
     // =======================================================
     const userActivity = [];
-    
+
     // Loop 7 hari ke belakang
     for (let i = 6; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(today.getDate() - i);
-      
-      const startOfDay = new Date(d.setHours(0,0,0,0));
-      const endOfDay = new Date(d.setHours(23,59,59,999));
+
+      const startOfDay = new Date(d.setHours(0, 0, 0, 0));
+      const endOfDay = new Date(d.setHours(23, 59, 59, 999));
 
       // Hitung New Register
       const newRegisters = await User.count({
         where: {
-          created_at: { [Op.between]: [startOfDay, endOfDay] }
-        }
+          created_at: { [Op.between]: [startOfDay, endOfDay] },
+        },
       });
 
       // Hitung Active Login (Dari UserLog)
       const activeLogins = await UserLog.count({
         where: {
           created_at: { [Op.between]: [startOfDay, endOfDay] },
-          action_type: 'LOGIN' // Pastikan action_type di database sesuai
-        }
+          action_type: "LOGIN", // Pastikan action_type di database sesuai
+        },
       });
 
       userActivity.push({
-        date: startOfDay.toISOString().split('T')[0], // YYYY-MM-DD
-        day: startOfDay.toLocaleDateString('en-US', { weekday: 'short' }), // Mon, Tue...
+        date: startOfDay.toISOString().split("T")[0], // YYYY-MM-DD
+        day: startOfDay.toLocaleDateString("en-US", { weekday: "short" }), // Mon, Tue...
         registers: newRegisters,
-        logins: activeLogins
+        logins: activeLogins,
       });
     }
 
@@ -1162,10 +1289,9 @@ const getDashboardAnalytics = async (req, res) => {
         teacher_trends: teacherTrends,
         student_participation: studentParticipation,
         quiz_flow: quizFlow,
-        user_activity: userActivity
-      }
+        user_activity: userActivity,
+      },
     });
-
   } catch (error) {
     console.error("Analytics Error:", error);
     return res.status(500).json({ message: error.message });
@@ -1183,41 +1309,95 @@ const toggleUserStatus = async (req, res) => {
     }
 
     // 2. Cek Admin Utama
-    if (user.role === 'admin') {
-      return res.status(403).json({ message: "Tidak dapat memblokir akun Admin" });
+    if (user.role === "admin") {
+      return res
+        .status(403)
+        .json({ message: "Tidak dapat memblokir akun Admin" });
     }
 
     // 3. LOGIC TOGGLE (PEMBALIKAN) OTOMATIS
     // Jika 1 jadi 0, Jika 0 jadi 1.
     // Kita baca status yang ada di database sekarang, lalu dibalik (!)
-    const newStatus = !user.is_active; 
-    
+    const newStatus = !user.is_active;
+
     // Update ke database
     user.is_active = newStatus ? 1 : 0;
     await user.save();
 
     const statusText = newStatus ? "diaktifkan" : "diblokir";
-    
-    return res.status(200).json({ 
+
+    return res.status(200).json({
       message: `User ${user.name} berhasil ${statusText}`,
       user: {
         id: user.id,
-        is_active: user.is_active ? 1 : 0 // Pastikan return integer/boolean konsisten
-      }
+        is_active: user.is_active ? 1 : 0, // Pastikan return integer/boolean konsisten
+      },
     });
-
   } catch (error) {
     console.error("Toggle User Error:", error);
     return res.status(500).json({ message: error.message });
   }
 };
 
+// Update User (Role & Subscription)
+const updateUser = async (req, res) => {
+  const admin = require("firebase-admin"); 
+  console.log("📥 [Backend] Masuk Update User");
+  console.log("🔑 ID Params:", req.params.id);
+  console.log("📦 Body:", req.body);
+  try {
+    const { id } = req.params;
+    const { role, subscription_id } = req.body;
 
+    const user = await User.findOne({ where: { id } });
+    if (!user) {
+      return res.status(404).json({ message: "User tidak ditemukan" });
+    }
 
+    // Cegah edit Role Admin Utama (Optional security)
+    if (user.role === 'admin' && role !== 'admin') {
+      return res.status(403).json({ message: "Tidak dapat mengubah role Admin utama" });
+    }
+
+    // Update Data
+    if (role) user.role = role;
+    if (subscription_id) user.subscription_id = subscription_id;
+
+    await user.save();
+
+    // Jika Role berubah, update juga Custom Claims Firebase (Penting!)
+    if (user.firebase_uid) {
+       await admin.auth().setCustomUserClaims(user.firebase_uid, { role: user.role });
+    }
+
+    return res.status(200).json({ 
+      message: `User ${user.name} berhasil diperbarui`,
+      user
+    });
+
+  } catch (error) {
+    console.error("Update User Error:", error);
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+const getAllTransactions = async (req, res) => {
+  try {
+    const transactions = await Transaction.findAll({
+      order: [['created_at', 'DESC']]
+    });
+    
+    // Pastikan return JSON yang strukturnya sesuai dengan model Flutter di atas
+    res.status(200).json({ data: transactions });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
 module.exports = {
   getLog,
   createTierList,
+  updateTierList,
   getTierList,
   getAllQuestions,
   getAllQuizzes,
@@ -1236,4 +1416,7 @@ module.exports = {
   getAllUsers,
   getDashboardAnalytics,
   toggleUserStatus,
+  deleteQuiz,
+  updateUser,
+  getAllTransactions,
 };

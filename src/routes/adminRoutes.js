@@ -25,14 +25,34 @@ const {
   getAllUsers,
   getDashboardAnalytics,
   toggleUserStatus,
+  deleteQuiz,
+  updateUser,
+  updateTierList,
+  getAllTransactions
 } = require("../controllers/adminController");
 
 const logActivity = require("../middleware/logActivity");
 const { authenticate, isAdmin } = require("../middleware/authMiddleware");
 const { saveQuizWithQuestions } = require("../controllers/teacherController");
 
-
 const router = express.Router();
+
+router.post(
+  "/quiz/save",
+  authenticate,
+  isAdmin,
+  logActivity("Admin: Save Quiz with Questions"),
+  saveQuizWithQuestions
+);
+
+router.delete(
+  "/quiz/delete",
+  authenticate,
+  isAdmin,
+  logActivity("Admin: Delete Quiz"),
+  deleteQuiz
+);
+
 router.get(
   "/questions",
   // authenticate,
@@ -56,16 +76,23 @@ router.get(
 );
 
 router.post(
-  "/tierlist",
+  "/subscriptions",
   authenticate,
   logActivity("Admin: Create Tier List"),
   isAdmin,
   createTierList
 );
-router.get(
-  "/tierlist",
+router.put(
+  "/subscriptions/:id",
   authenticate,
-  logActivity("Admin: View Tier List"),
+  isAdmin,
+  logActivity("Admin: Update Subscription Tier"),
+  updateTierList
+);
+router.get(
+  "/subscriptions",
+  authenticate,
+  logActivity("Admin: get Subscription Tier List"),
   isAdmin,
   getTierList
 );
@@ -77,7 +104,7 @@ router.post(
   saveQuizWithQuestions
 );
 router.put(
-  "/quiz",
+  "/quiz/:quiz_id",
   authenticate,
   isAdmin,
   logActivity("Admin: Update Quiz"),
@@ -145,7 +172,7 @@ router.get(
   getQuizResult
 );
 router.get(
-  "/quiz/answers",
+  "/quiz/answers/:quiz_id/:student_id",
   authenticate,
   isAdmin,
   logActivity("Admin: Get a Student's Answers"),
@@ -159,28 +186,39 @@ router.get(
   getQuizAccuracy
 );
 router.get(
-    '/users', 
-    authenticate, 
-    isAdmin, 
-    logActivity("Admin: Get All Users"),
-    getAllUsers
+  "/users",
+  authenticate,
+  isAdmin,
+  logActivity("Admin: Get All Users"),
+  getAllUsers
 );
-
+router.put(
+  "/users/:id",
+  authenticate,
+  isAdmin,
+  logActivity("Admin: Update User"),
+  updateUser
+);
 router.get(
-  "/analytics", 
-  authenticate, 
-  isAdmin, 
+  "/analytics",
+  authenticate,
+  isAdmin,
   // logActivity("Admin: View Analytics"), // Opsional jika ada middleware log
   getDashboardAnalytics
 );
 
 router.patch(
   "/users/:id/status", // Endpoint: /api/admin/users/ST001/status
-  authenticate, 
-  isAdmin, 
+  authenticate,
+  isAdmin,
   logActivity("Admin Change User Status"), // Jika middleware log aktif
   toggleUserStatus
 );
-
-
+router.get(
+  "/transactions",
+  authenticate,
+  isAdmin,
+  logActivity("Admin: Get Transaction"), 
+  getAllTransactions
+);
 module.exports = router;

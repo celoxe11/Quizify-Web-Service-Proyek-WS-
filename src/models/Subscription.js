@@ -1,5 +1,5 @@
 const { DataTypes } = require("sequelize");
-const sequelize = require("../config/db");
+const sequelize = require("../database/connection");
 
 const Subscription = sequelize.define("Subscription", {
   id_subs: {
@@ -12,6 +12,11 @@ const Subscription = sequelize.define("Subscription", {
     allowNull: false,
     defaultValue: "Free",
     unique: true,
+  },
+  price: {
+    type: DataTypes.DECIMAL(10, 2), // Menggunakan Decimal untuk harga
+    allowNull: false,
+    defaultValue: 0,
   },
 }, {
   tableName: "subscription",

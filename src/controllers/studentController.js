@@ -5,8 +5,8 @@ const {
   SubmissionAnswer,
   User,
 } = require("../models");
-const opentdb = require("../services/opentdb");
-const { Op } = require("sequelize");
+const { get } = require("../routes/studentRoutes");
+const fetchGeminiEvaluation = require("../utils/fetchGeminiEvaluation");
 
 // Helper function to pad numbers with leading zeros
 const padNumber = (num) => {
@@ -107,6 +107,7 @@ const startQuizByCode = async (req, res) => {
     res.status(201).json({
       message: "Sesi kuis berhasil dimulai",
       session_id: session.id,
+      quiz_id: quiz.id,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -397,47 +398,186 @@ const submitQuiz = async (req, res) => {
   }
 };
 
-const getGenerateQuestion = async (req, res) => {
+const getAllQuizzes = async (req, res) => {
   try {
-    const { type, amount, difficulty, category } = req.body;
+    const quizzes = await Quiz.findAll({
+      include: [
+        {
+          model: User,
+          attributes: ["name"], // Kita cuma butuh namanya
+        },
+      ],
+      order: [["created_at", "DESC"]],
+    });
 
-    const params = {
-      amount: amount || 10,
-    };
-    if (category) params.category = category;
-    if (difficulty) params.difficulty = difficulty;
-    if (type) params.type = type;
+    // Format data agar sesuai dengan QuizModel Flutter (Flattening)
+    const formattedQuizzes = quizzes.map((quiz) => {
+      // Ubah ke plain object
+      const q = quiz.get({ plain: true });
 
-    const response = await opentdb.get("/api.php", { params });
-    const data = response.data;
-
-    if (!data.results || data.results.length === 0) {
-      return res.status(404).json({
-        message: "Tidak ada pertanyaan yang ditemukan dari Open Trivia DB",
-      });
-    }
-
-    const formatedQuestions = data.results.map((question) => {
-      const allOptions = [
-        `${question.correct_answer} (correct)`,
-        ...question.incorrect_answers,
-      ];
-      const shuffledOptions = allOptions.sort(() => Math.random() - 0.5);
       return {
-        question: question.question,
-        options: shuffledOptions,
-        type: question.type,
-        difficulty: question.difficulty,
-        category: question.category,
+        ...q, // Copy semua field quiz (id, title, status, dll)
+
+        // [PENTING] Mapping dari Nested Object ke Flat Field
+        // Flutter QuizModel mencari: json['creator_name']
+        creator_name: q.User ? q.User.name : "Unknown Teacher",
       };
     });
 
-    return res.status(200).json({
-      message: `Berhasil mendapatkan ${formatedQuestions.length} pertanyaan`,
-      questions: formatedQuestions,
+    return res.status(200).json(formattedQuizzes);
+  } catch (error) {
+    console.error("Get All Quizzes Error:", error);
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+const getQuizDetail = async (req, res) => {
+  try {
+    // 1. Validasi Input
+    const { error, value } = teacherSchema.idSchema.validate({
+      id: req.params.quiz_id,
+    });
+    if (error)
+      return res.status(400).json({ message: error.details[0].message });
+
+    const quiz_id = value.id;
+
+    // 2. Ambil Semua Pertanyaan
+    const questions = await Question.findAll({
+      where: { quiz_id },
+      attributes: [
+        "id",
+        "type",
+        "difficulty",
+        "question_text",
+        "correct_answer",
+        "options",
+        "created_at",
+        "updated_at",
+      ],
+    });
+
+    // 3. [LOGIC BARU] Hitung Statistik & Gambar untuk Setiap Pertanyaan
+    // Kita pakai Promise.all agar prosesnya berjalan paralel (lebih cepat)
+    const questionsWithStats = await Promise.all(
+      questions.map(async (question) => {
+        const q = question.toJSON(); // Ubah ke object biasa agar bisa ditambah field baru
+
+        // A. Hitung Jawaban BENAR (is_correct = 1)
+        const correctCount = await SubmissionAnswer.count({
+          where: {
+            question_id: q.id,
+            is_correct: true, // atau 1
+          },
+        });
+
+        // B. Hitung Jawaban SALAH (is_correct = 0)
+        const incorrectCount = await SubmissionAnswer.count({
+          where: {
+            question_id: q.id,
+            is_correct: false, // atau 0
+          },
+        });
+
+        // C. Ambil Gambar (Logic lama)
+        const image = await QuestionImage.findOne({
+          where: { question_id: q.id },
+        });
+
+        // D. Masukkan data ke object response
+        q.correct_answers = correctCount; // <-- INI YANG DIBACA FLUTTER
+        q.incorrect_answers = incorrectCount; // <-- INI YANG DIBACA FLUTTER
+        q.image_url = formatImageUrl(req, image?.image_url);
+
+        return q;
+      })
+    );
+
+    res.status(200).json({
+      message: `Berhasil mendapatkan detail kuis`,
+      questions: questionsWithStats,
     });
   } catch (error) {
+    console.error("Error getQuizDetail:", error);
     res.status(500).json({ message: error.message });
+  }
+};
+
+const getGeminiEvaluation = async (req, res) => {
+  try {
+    const { submission_answer_id, language, detailed_feedback, question_type } =
+      req.body;
+
+    const submissionAnswer = await SubmissionAnswer.findByPk(
+      submission_answer_id
+    );
+
+    if (!submissionAnswer) {
+      return res.status(404).json({ message: "Jawaban tidak ditemukan" });
+    }
+
+    const question = await Question.findByPk(submissionAnswer.question_id);
+
+    if (!question) {
+      return res.status(404).json({ message: "Pertanyaan tidak ditemukan" });
+    }
+
+    const options = {
+      language,
+      detailed_feedback,
+      question_type,
+    };
+
+    const evaluation = await fetchGeminiEvaluation(
+      question.question_text,
+      question.correct_answer,
+      submissionAnswer.selected_answer,
+      options
+    );
+
+    return res.status(200).json({
+      message: "Berhasil mendapatkan evaluasi",
+      evaluation,
+    });
+  } catch (error) {
+    console.error("Error in getGeminiEvaluation:", error.message);
+
+    // Check if it's a quota exceeded error
+    if (error.message.includes("quota") || error.message.includes("Quota")) {
+      return res.status(429).json({
+        message: "Kuota API Gemini telah habis. Silakan coba lagi nanti.",
+        error: "QUOTA_EXCEEDED",
+        details:
+          language === "en"
+            ? "The Gemini API quota has been exceeded. Please try again later."
+            : "Kuota API Gemini telah habis. Silakan coba lagi nanti.",
+      });
+    }
+
+    // Check if it's a rate limit error
+    if (
+      error.message.includes("rate limit") ||
+      error.message.includes("retry")
+    ) {
+      return res.status(429).json({
+        message: "Terlalu banyak permintaan. Silakan tunggu beberapa saat.",
+        error: "RATE_LIMIT",
+        details:
+          language === "en"
+            ? "Too many requests. Please wait a moment and try again."
+            : "Terlalu banyak permintaan. Silakan tunggu beberapa saat.",
+      });
+    }
+
+    // Generic error
+    return res.status(500).json({
+      message: "Gagal mendapatkan evaluasi dari Gemini",
+      error: "EVALUATION_FAILED",
+      details:
+        language === "en"
+          ? "Failed to get evaluation from Gemini AI. Please try again later."
+          : "Gagal mendapatkan evaluasi dari Gemini AI. Silakan coba lagi nanti.",
+    });
   }
 };
 
@@ -551,14 +691,250 @@ const getQuizReview = async (req, res) => {
   }
 };
 
+const getStudentHistory = async (req, res) => {
+  try {
+    // Ambil ID dari token (req.user)
+    // Pastikan middleware auth sudah menempelkan uid/id
+    const userId = req.user.id || req.user.uid;
+
+    console.log("🔍 Fetching history for user:", userId);
+
+    // 1. Ambil semua sesi kuis yang sudah COMPLETED
+    const sessions = await QuizSession.findAll({
+      where: {
+        user_id: userId,
+        status: "completed",
+      },
+      include: [
+        {
+          model: Quiz,
+          attributes: ["title", "category"],
+        },
+      ],
+      order: [["ended_at", "DESC"]],
+    });
+
+    if (!sessions.length) {
+      // Return array kosong di dalam key 'data'
+      return res.status(200).json({ message: "No history found", data: [] });
+    }
+
+    // 2. Hitung Detail (Benar/Salah)
+    const historyData = await Promise.all(
+      sessions.map(async (session) => {
+        const s = session.toJSON();
+
+        // Hitung jawaban benar
+        const correctCount = await SubmissionAnswer.count({
+          where: { quiz_session_id: s.id, is_correct: 1 },
+        });
+
+        // Hitung jawaban salah
+        const incorrectCount = await SubmissionAnswer.count({
+          where: { quiz_session_id: s.id, is_correct: 0 },
+        });
+
+        return {
+          // Mapping field sesuai StudentHistoryModel di Flutter
+          id: s.id,
+          quiz_title: s.Quiz ? s.Quiz.title : "Unknown Quiz",
+          score: s.score, // Nilai (0-100)
+          correct: correctCount, // Jumlah Benar
+          incorrect: incorrectCount, // Jumlah Salah
+          finished_at: s.ended_at, // Tanggal Selesai
+        };
+      })
+    );
+
+    // 3. Kirim response dengan key 'data'
+    return res.status(200).json({
+      message: "Berhasil mendapatkan sejarah sesi quiz",
+      data: historyData, // <--- PENTING: Key harus 'data' agar cocok dengan Flutter
+    });
+  } catch (error) {
+    console.error("Get History Error:", error);
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+const getHistoryDetail = async (req, res) => {
+  try {
+    const { session_id } = req.params;
+
+    // Gunakan ID internal user
+    const userId = req.user.id || req.user.uid;
+
+    // 1. Cek Sesi & Validasi Pemilik
+    const session = await QuizSession.findOne({
+      where: { id: session_id },
+      include: [{ model: Quiz, attributes: ["title", "category"] }],
+    });
+
+    if (!session) {
+      return res.status(404).json({ message: "Sesi tidak ditemukan" });
+    }
+
+    // Pastikan yang akses adalah pemilik sesi (security)
+    if (session.user_id !== userId) {
+      return res
+        .status(403)
+        .json({ message: "Anda tidak berhak melihat detail ini" });
+    }
+
+    // 2. Ambil Jawaban + Detail Soal
+    const answers = await SubmissionAnswer.findAll({
+      where: { quiz_session_id: session_id },
+      include: [
+        {
+          model: Question,
+          attributes: [
+            "id",
+            "question_text",
+            "type",
+            "difficulty",
+            "correct_answer",
+            "options",
+          ],
+        },
+      ],
+    });
+
+    // 3. Format Data untuk Flutter
+    const formattedDetails = answers.map((ans) => {
+      const q = ans.Question;
+
+      // --- [FIX] CEK APAKAH SOAL MASIH ADA? ---
+      if (!q) {
+        // Jika soal sudah dihapus dari database, kembalikan data placeholder
+        // agar aplikasi tidak crash
+        return {
+          question_id: ans.question_id || "deleted",
+          question_text: "[Soal ini telah dihapus oleh guru]",
+          type: "unknown",
+          difficulty: "unknown",
+          options: [],
+          user_answer: ans.selected_answer,
+          correct_answer: "-",
+          is_correct: ans.is_correct ? true : false,
+          submission_answer_id: ans.id,
+        };
+      }
+
+      return {
+        question_id: q.id,
+        question_text: q.question_text,
+        type: q.type, // 'multiple' / 'boolean'
+        difficulty: q.difficulty,
+
+        // PENTING: Parse options jika bentuknya string JSON
+        options:
+          typeof q.options === "string" ? JSON.parse(q.options) : q.options,
+
+        user_answer: ans.selected_answer,
+        correct_answer: q.correct_answer,
+        is_correct: ans.is_correct ? true : false,
+        submission_answer_id: ans.id,
+      };
+    });
+
+    return res.status(200).json({
+      message: "Detail history berhasil diambil",
+      data: {
+        quiz_title: session.Quiz ? session.Quiz.title : "Unknown",
+        score: session.score,
+        finished_at: session.ended_at,
+        details: formattedDetails,
+      },
+    });
+  } catch (error) {
+    console.error("Get History Detail Error:", error);
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+const getTransactionHistory = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user.uid;
+
+    const transactions = await Transaction.findAll({
+      where: { user_id: userId },
+      include: [
+        {
+          model: Subscription,
+          as: "subscription_detail", // Sesuai alias di index.js
+          attributes: ["status"],
+        },
+      ],
+      order: [["created_at", "DESC"]],
+    });
+
+    // Formatting
+    const formatted = transactions.map((t) => ({
+      id: t.id,
+      item: t.subscription_detail
+        ? `Paket ${t.subscription_detail.status}`
+        : "Unknown Package",
+      amount: parseFloat(t.amount),
+      status: t.status,
+      method: t.payment_method,
+      date: t.created_at,
+    }));
+
+    res.status(200).json({ data: formatted });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// SIMULASI BUY SUBSCRIPTION (Dummy Payment)
+const buySubscription = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user.uid;
+    const { subscription_id, payment_method } = req.body;
+
+    // 1. Cek User
+    const user = await User.findOne({ where: { id: userId } });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // 2. Generate Transaction ID (TR + Random)
+    const trId = "TR" + Math.floor(1000 + Math.random() * 9000);
+
+    // 3. Simpan Transaksi (Langsung Success ceritanya)
+    await Transaction.create({
+      id: trId,
+      user_id: userId,
+      subscription_id: subscription_id, // Misal 2 (Premium)
+      amount: 50000, // Harga ceritanya 50rb
+      status: "success",
+      payment_method: payment_method || "Manual",
+    });
+
+    // 4. UPDATE USER SUBSCRIPTION OTOMATIS
+    user.subscription_id = subscription_id;
+    await user.save();
+
+    res
+      .status(200)
+      .json({ message: "Pembelian berhasil! Akun Anda sekarang Premium." });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   startQuiz,
   getQuestions,
   answerQuestion,
   updateAnswer,
   submitQuiz,
-  getGenerateQuestion,
+  getAllQuizzes,
+  getQuizDetail,
+  getGeminiEvaluation,
   getSessionHistory,
   getQuizReview,
   startQuizByCode,
+  getStudentHistory,
+  getHistoryDetail,
+  getTransactionHistory,
+  buySubscription,
 };

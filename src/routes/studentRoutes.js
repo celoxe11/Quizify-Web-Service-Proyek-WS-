@@ -6,10 +6,16 @@ const {
   answerQuestion,
   updateAnswer,
   submitQuiz,
-  getGenerateQuestion,
+  getAllQuizzes,
+  getQuizDetail,
+  getGeminiEvaluation,
   getSessionHistory,
   getQuizReview,
   startQuizByCode,
+  getStudentHistory,
+  getHistoryDetail,
+  getTransactionHistory,
+  buySubscription,
 } = require("../controllers/studentController");
 
 const { authenticate, isStudent } = require("../middleware/authMiddleware");
@@ -45,6 +51,20 @@ router.put(
   logActivity("Student: Update answer"),
   updateAnswer
 );
+router.get(
+  "/quizzes",
+  authenticate,
+  isStudent,
+  logActivity("Student: Get All Quizzes"),
+  getAllQuizzes
+);
+router.get(
+  "/quiz/:quiz_id",
+  authenticate,
+  isStudent,
+  logActivity("Student: Get Quiz Detail"),
+  getQuizDetail
+);
 router.post(
   "/submitquiz",
   authenticate,
@@ -52,20 +72,20 @@ router.post(
   logActivity("Student: Submit quiz"),
   submitQuiz
 );
-router.get(
-  "/question/generate",
-  authenticate,
-  isStudent,
-  logActivity("Student: Generate Questions"),
-  getGenerateQuestion
+router.post(
+  "/question/gemini-evaluation",
+  // authenticate,
+  // isStudent,
+  // logActivity("Student: Ask Gemini for Evaluation"),
+  getGeminiEvaluation
 );
-router.get(
-  "/history",
-  authenticate,
-  isStudent,
-  logActivity("Student: Get Session History"),
-  getSessionHistory
-);
+// router.get(
+//   "/history",
+//   authenticate,
+//   isStudent,
+//   logActivity("Student: Get Session History"),
+//   getSessionHistory
+// );
 router.get(
   "/review/:quiz_id",
   authenticate,
@@ -81,4 +101,30 @@ router.post(
   startQuizByCode
 );
 
+router.get(
+  "/history", 
+  authenticate, 
+  isStudent, 
+  logActivity("Student: Get Student History"),
+  getStudentHistory);
+
+router.get(
+  "/history/:session_id", // Parameter session_id
+  authenticate,
+  isStudent,
+  getHistoryDetail
+  );
+
+router.get(
+  "/transactions", 
+  authenticate, 
+  isStudent, 
+  getTransactionHistory);
+
+router.post(
+  "/buy-subscription", 
+  authenticate, 
+  isStudent, 
+  buySubscription);
+ 
 module.exports = router;

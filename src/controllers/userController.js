@@ -1,10 +1,27 @@
-const { User } = require("../models");
+const { User, Quiz } = require("../models");
+
+const getPublicQuiz = async (req, res) => {
+  try {
+    // Logic to fetch and return public quizzes
+    // get 3 quizzes where status is 'public' and is the most recently created
+    const publicQuizzes = await Quiz.findAll({
+      where: { status: "public" },
+      order: [["created_at", "DESC"]],
+      limit: 3,
+    });
+    res.json(publicQuizzes);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: `Failed to fetch public quizzes - ${error.message}` });
+  }
+};
 
 // Update Profile (Name, Username, etc.)
 const updateProfile = async (req, res) => {
   try {
     const { id } = req.params; // The MySQL User ID (e.g., ST001)
-    const { name, username } = req.body;
+    const { name, username, email } = req.body;
 
     // 1. Find User
     const user = await User.findByPk(id);
@@ -20,8 +37,9 @@ const updateProfile = async (req, res) => {
     }
 
     // 3. Update
-    user.name = name || user.name;
+    user.name = name || user.name ;
     user.username = username || user.username;
+    user.email = email || user.email;
 
     await user.save();
 
@@ -33,6 +51,37 @@ const updateProfile = async (req, res) => {
   }
 };
 
+const updatePassword = async (req, res) => {
+  // Implementation for updating password
+  try {
+    const { id } = req.params;
+    const { oldPassword, newPassword, confirmPassword } = req.body;
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ message: "Passwords do not match" });
+    }
+
+    const user = await User.findByPk(id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const isMatch = await user.comparePassword(oldPassword);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Old password is incorrect" });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    res.json({ message: "Password updated successfully" });
+  } catch (error) {
+    res.json({ message: `Failed to update password - ${error.message}` });
+  }
+}
+
 module.exports = {
+  getPublicQuiz,
   updateProfile,
+  updatePassword,
 };
