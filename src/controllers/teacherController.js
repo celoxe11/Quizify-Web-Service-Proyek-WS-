@@ -49,6 +49,7 @@ const saveQuizWithQuestions = async (req, res) => {
     let quiz;
     let quizId;
     let isUpdate = false;
+    let existingQuestionsMap = new Map(); // Declare here for both CREATE and UPDATE modes
 
     // Check if this is an update or create operation
     if (quiz_id) {
@@ -93,28 +94,54 @@ const saveQuizWithQuestions = async (req, res) => {
 
       quizId = quiz_id;
 
-      // Delete all existing questions for this quiz
-      await Question.destroy({ where: { quiz_id: quizId }, transaction });
-
-      // Also delete related question images
-      const existingQuestionImages = await QuestionImage.findAll({
+      // Get existing questions with their full data
+      const existingQuestions = await Question.findAll({
+        where: { quiz_id: quizId },
         include: [
           {
-            model: Question,
-            where: { quiz_id: quizId },
-            required: true,
+            model: QuestionImage,
+            required: false,
           },
         ],
       });
 
-      for (const img of existingQuestionImages) {
-        // Delete image file from server
-        const imagePath = img.image_url.replace(`/uploads/${userId}/`, "");
-        const fullPath = `./src/uploads/${userId}/${imagePath}`;
-        if (fs.existsSync(fullPath)) {
-          fs.unlinkSync(fullPath);
+      // Create a map of existing questions by their ID
+      existingQuestions.forEach((q) => {
+        existingQuestionsMap.set(q.id, q);
+      });
+
+      // Extract question IDs from the request (if they exist)
+      const requestedQuestionIds = questions
+        .map((q) => q.id)
+        .filter((id) => id !== undefined && id !== null);
+
+      // Find questions to delete (existing questions not in the request)
+      const questionsToDelete = existingQuestions.filter(
+        (q) => !requestedQuestionIds.includes(q.id)
+      );
+
+      // Delete removed questions and their images
+      for (const questionToDelete of questionsToDelete) {
+        // Delete associated images
+        const questionImages = await QuestionImage.findAll({
+          where: { question_id: questionToDelete.id },
+        });
+
+        for (const img of questionImages) {
+          // Delete image file from server
+          const imagePath = img.image_url.replace(`/uploads/${userId}/`, "");
+          const fullPath = `./src/uploads/${userId}/${imagePath}`;
+          if (fs.existsSync(fullPath)) {
+            fs.unlinkSync(fullPath);
+          }
+          await QuestionImage.destroy({ where: { id: img.id }, transaction });
         }
-        await QuestionImage.destroy({ where: { id: img.id }, transaction });
+
+        // Delete the question
+        await Question.destroy({
+          where: { id: questionToDelete.id },
+          transaction,
+        });
       }
 
       quiz = await Quiz.findByPk(quiz_id);
@@ -155,25 +182,38 @@ const saveQuizWithQuestions = async (req, res) => {
       fs.mkdirSync(userUploadDir, { recursive: true });
     }
 
-    // Get highest question ID to generate new IDs
+    // Get highest question ID to generate new IDs for new questions only
+    let questionCount = 0;
     const allQuestions = await Question.findAll({
       attributes: ["id"],
       order: [["id", "DESC"]],
       limit: 1,
     });
 
-    // Extract the number from the highest ID (e.g., "Q019" -> 19)
-    let questionCount = 0;
     if (allQuestions.length > 0) {
       const highestId = allQuestions[0].id;
       questionCount = parseInt(highestId.substring(1)); // Remove "Q" prefix and parse number
     }
 
-    // Create all questions
+    // Create or update all questions
     const savedQuestions = [];
-    for (const questionData of questions) {
-      questionCount++;
-      const questionId = "Q" + questionCount.toString().padStart(3, "0");
+    for (let i = 0; i < questions.length; i++) {
+      const questionData = questions[i];
+      let questionId = questionData.id; // Use existing ID if provided
+      let isExistingQuestion = false;
+
+      // Check if this is an existing question
+      if (
+        questionId &&
+        existingQuestionsMap &&
+        existingQuestionsMap.has(questionId)
+      ) {
+        isExistingQuestion = true;
+      } else {
+        // Generate new ID for new questions
+        questionCount++;
+        questionId = "Q" + questionCount.toString().padStart(3, "0");
+      }
 
       // Combine correct_answer and incorrect_answers into options
       const options = [
@@ -181,53 +221,125 @@ const saveQuizWithQuestions = async (req, res) => {
         ...questionData.incorrect_answers,
       ];
 
-      const newQuestion = await Question.create(
-        {
-          id: questionId,
-          quiz_id: quizId,
-          type: questionData.type,
-          difficulty: questionData.difficulty,
-          question_text: questionData.question_text,
-          correct_answer: questionData.correct_answer,
-          options,
-          is_generated: questionData.is_generated || false,
-        },
-        { transaction }
-      );
+      let newQuestion;
+      if (isExistingQuestion) {
+        // Update existing question
+        await Question.update(
+          {
+            type: questionData.type,
+            difficulty: questionData.difficulty,
+            question_text: questionData.question_text,
+            correct_answer: questionData.correct_answer,
+            options,
+            is_generated: questionData.is_generated || false,
+          },
+          { where: { id: questionId }, transaction }
+        );
+        newQuestion = await Question.findByPk(questionId);
+      } else {
+        // Create new question
+        newQuestion = await Question.create(
+          {
+            id: questionId,
+            quiz_id: quizId,
+            type: questionData.type,
+            difficulty: questionData.difficulty,
+            question_text: questionData.question_text,
+            correct_answer: questionData.correct_answer,
+            options,
+            is_generated: questionData.is_generated || false,
+          },
+          { transaction }
+        );
+      }
 
       // Handle image upload if question_image is provided
       let imageUrl = null;
       if (questionData.question_image) {
         try {
-          // Remove data URI prefix if present (e.g., "data:image/png;base64,")
-          const base64Data = questionData.question_image.replace(
-            /^data:image\/\w+;base64,/,
-            ""
-          );
-          const buffer = Buffer.from(base64Data, "base64");
+          // Check if it's a URL (existing image) or base64 (new image)
+          if (
+            questionData.question_image.startsWith("http://") ||
+            questionData.question_image.startsWith("https://") ||
+            questionData.question_image.startsWith("/uploads/") ||
+            questionData.question_image.startsWith("/api/uploads/")
+          ) {
+            // It's an existing image URL, normalize it to database format
+            imageUrl = questionData.question_image
+              .replace(/^https?:\/\/[^\/]+/, "") // Remove protocol and host
+              .replace(/^\/api/, ""); // Remove /api prefix if present
 
-          // Generate unique filename
-          const timestamp = Date.now();
-          const randomString = Math.random().toString(36).substring(2, 15);
-          const filename = `question_${questionId}_${timestamp}_${randomString}.png`;
-          const filepath = path.join(userUploadDir, filename);
+            // Check if this image record already exists for this question
+            const existingImageRecord = await QuestionImage.findOne({
+              where: { question_id: questionId, image_url: imageUrl },
+            });
 
-          // Save image to file system
-          fs.writeFileSync(filepath, buffer);
+            // Only create if it doesn't exist
+            if (!existingImageRecord) {
+              await QuestionImage.create(
+                {
+                  user_id: userId,
+                  question_id: questionId,
+                  image_url: imageUrl,
+                  uploaded_at: new Date(),
+                },
+                { transaction }
+              );
+            }
+          } else {
+            // It's a new base64 image, process and save it
+            // Remove data URI prefix if present (e.g., "data:image/png;base64,")
+            const base64Data = questionData.question_image.replace(
+              /^data:image\/\w+;base64,/,
+              ""
+            );
+            const buffer = Buffer.from(base64Data, "base64");
 
-          // Create image URL
-          imageUrl = `/uploads/${userId}/${filename}`;
+            // Generate unique filename
+            const timestamp = Date.now();
+            const randomString = Math.random().toString(36).substring(2, 15);
+            const filename = `question_${questionId}_${timestamp}_${randomString}.png`;
+            const filepath = path.join(userUploadDir, filename);
 
-          // Save to QuestionImage table
-          await QuestionImage.create(
-            {
-              user_id: userId,
-              question_id: questionId,
-              image_url: imageUrl,
-              uploaded_at: new Date(),
-            },
-            { transaction }
-          );
+            // Save image to file system
+            fs.writeFileSync(filepath, buffer);
+
+            // Create image URL
+            imageUrl = `/uploads/${userId}/${filename}`;
+
+            // Delete old image for this question if it exists
+            const oldImage = await QuestionImage.findOne({
+              where: { question_id: questionId },
+            });
+
+            if (oldImage && oldImage.image_url !== imageUrl) {
+              // Delete old image file from server
+              const oldImagePath = oldImage.image_url.replace(
+                `/uploads/${userId}/`,
+                ""
+              );
+              const oldFullPath = `./src/uploads/${userId}/${oldImagePath}`;
+              if (fs.existsSync(oldFullPath)) {
+                fs.unlinkSync(oldFullPath);
+              }
+              // Delete old image record
+              await QuestionImage.destroy({
+                where: { id: oldImage.id },
+                transaction,
+              });
+            }
+
+            // Save to QuestionImage table
+            await QuestionImage.create(
+              {
+                user_id: userId,
+                question_id: questionId,
+                image_url: imageUrl,
+                uploaded_at: new Date(),
+              },
+              { transaction }
+            );
+          }
         } catch (imageError) {
           console.error(
             `Error processing image for question ${questionId}:`,

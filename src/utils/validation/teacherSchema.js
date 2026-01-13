@@ -93,6 +93,9 @@ const generateQuestionSchema = Joi.object({
 
 // Question schema for batch save
 const questionItemSchema = Joi.object({
+  id: Joi.string().optional().messages({
+    "string.empty": "Question ID cannot be empty if provided",
+  }),
   type: Joi.string().valid("multiple", "boolean").required().messages({
     "any.required": "Type is required",
     "string.empty": "Type cannot be empty",
@@ -111,10 +114,13 @@ const questionItemSchema = Joi.object({
     "any.required": "Correct answer is required",
     "string.empty": "Correct answer cannot be empty",
   }),
-  incorrect_answers: Joi.array().items(Joi.string()).required().messages({
-    "any.required": "Incorrect answers are required",
-    "array.base": "Incorrect answers must be an array of strings",
-  }),
+  incorrect_answers: Joi.array()
+    .items(Joi.string().allow(""))
+    .required()
+    .messages({
+      "any.required": "Incorrect answers are required",
+      "array.base": "Incorrect answers must be an array of strings",
+    }),
   question_image: Joi.string().optional().allow("", null).messages({
     "string.base": "Image base64 must be a string",
   }),

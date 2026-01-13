@@ -17,6 +17,7 @@ const { authenticate, isTeacher } = require("../middleware/authMiddleware");
 const {
   isPremium,
   alreadyMadeQuizToday,
+  uploadImageLimit,
 } = require("../middleware/teacherMiddleware");
 const logActivity = require("../middleware/logActivity");
 
@@ -28,6 +29,7 @@ router.post(
   authenticate,
   isTeacher,
   alreadyMadeQuizToday,
+  uploadImageLimit,
   logActivity("Teacher: Save Quiz with Questions"),
   saveQuizWithQuestions
 );
