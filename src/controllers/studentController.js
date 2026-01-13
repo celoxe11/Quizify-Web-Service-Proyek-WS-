@@ -859,26 +859,43 @@ const getTransactionHistory = async (req, res) => {
     const transactions = await Transaction.findAll({
       where: { user_id: userId },
       include: [
-        {
-          model: Subscription,
-          as: "subscription_detail", // Sesuai alias di index.js
-          attributes: ["status"],
+        // Include Subscription
+        { 
+          model: Subscription, 
+          as: 'subscription_detail', 
+          attributes: ['status'] 
         },
+        // Include Item (Katalog Barang) - Pastikan relasi sudah dibuat di index.js
+        {
+           model: Item,
+           as: 'item_detail', // Anda perlu tambah relasi ini di index.js
+           attributes: ['name']
+        }
       ],
-      order: [["created_at", "DESC"]],
+      order: [['created_at', 'DESC']]
     });
 
-    // Formatting
-    const formatted = transactions.map((t) => ({
-      id: t.id,
-      item: t.subscription_detail
-        ? `Paket ${t.subscription_detail.status}`
-        : "Unknown Package",
-      amount: parseFloat(t.amount),
-      status: t.status,
-      method: t.payment_method,
-      date: t.created_at,
-    }));
+    const formatted = transactions.map(t => {
+      let itemName = "Unknown";
+      
+      // Logic penentuan nama
+      if (t.category === 'subscription' && t.subscription_detail) {
+         itemName = `Paket ${t.subscription_detail.status}`;
+      } else if (t.category === 'item' && t.item_detail) {
+         itemName = t.item_detail.name; // Nama Avatar/Item
+      }
+
+      return {
+        id: t.id,
+        user_id: t.user_id,
+        item_name: itemName, // Kirim ini ke Flutter
+        category: t.category,
+        amount: parseFloat(t.amount),
+        status: t.status,
+        payment_method: t.payment_method,
+        created_at: t.created_at
+      };
+    });
 
     res.status(200).json({ data: formatted });
   } catch (error) {

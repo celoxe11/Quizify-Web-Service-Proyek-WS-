@@ -1,3 +1,4 @@
+
 const { DataTypes } = require("sequelize");
 const sequelize = require("../database/connection");
 
@@ -21,6 +22,10 @@ const User = sequelize.define(
       type: DataTypes.STRING(100),
       allowNull: false,
       unique: true,
+    },
+    current_avatar_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true, // Boleh null jika user pakai foto default/kosong
     },
     firebase_uid: {
       type: DataTypes.STRING(128),
@@ -48,5 +53,4 @@ const User = sequelize.define(
     updatedAt: "updated_at",
   }
 );
-
 module.exports = User;
