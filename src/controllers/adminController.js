@@ -11,7 +11,8 @@ const {
   QuestionImage,
   SubmissionAnswer,
   QuizSession,
-  Transaction
+  Transaction,
+  Item
 } = require("../models/index");
 
 const { formatImageUrl } = require("../utils/helpers");
@@ -1384,12 +1385,48 @@ const updateUser = async (req, res) => {
 const getAllTransactions = async (req, res) => {
   try {
     const transactions = await Transaction.findAll({
-      order: [['created_at', 'DESC']]
+      order: [['created_at', 'DESC']],
+      include: [
+        // 1. Join ke Subscription (Jika transaksinya beli paket)
+        {
+          model: Subscription,
+          as: 'subscription_detail', // Pastikan alias ini ada di models/index.js
+          attributes: ['status', 'price'],
+        },
+        // 2. Join ke Item (Jika transaksinya beli Avatar/Item)
+        {
+          model: Item,
+          as: 'item_detail', // Pastikan alias ini ada di models/index.js
+          attributes: ['name', 'price'],
+        }
+      ]
     });
     
-    // Pastikan return JSON yang strukturnya sesuai dengan model Flutter di atas
-    res.status(200).json({ data: transactions });
+    // FORMATTING DATA
+    // Kita harus menentukan 'item_name' berdasarkan kategori
+    const formattedData = transactions.map(t => {
+      const trx = t.get({ plain: true }); // Ubah ke plain object
+      
+      let finalItemName = "Unknown Item";
+
+      // LOGIKANYA:
+      if (trx.category === 'subscription' && trx.subscription_detail) {
+        finalItemName = `Paket ${trx.subscription_detail.status}`;
+      } 
+      else if (trx.category === 'item' && trx.item_detail) {
+        finalItemName = trx.item_detail.name;
+      }
+
+      return {
+        ...trx,
+        item_name: finalItemName, // <--- Ini yang dibaca Flutter
+      };
+    });
+
+    res.status(200).json({ data: formattedData });
+
   } catch (error) {
+    console.error("Get Transactions Error:", error);
     res.status(500).json({ message: error.message });
   }
 };
