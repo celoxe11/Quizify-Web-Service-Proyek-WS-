@@ -7,6 +7,7 @@ const {
   Item,
   UserAvatar,
 } = require("../models");
+const crypto = require('crypto');
 
 // Initialize Snap API Client (untuk generate payment snap)
 const snap = new midtransClient.Snap({
@@ -22,9 +23,32 @@ const core = new midtransClient.CoreApi({
   clientKey: process.env.MIDTRANS_CLIENT_KEY,
 });
 
-// Generate Unique Order ID
-const generateOrderId = () => {
-  return `ORDER-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+// Generate Unique Order ID - Format: TR000001, TR000002, etc. (varchar 10)
+const generateOrderId = async () => {
+  let tryNum = 1;
+  while (tryNum < 1000) { // Hindari infinite loop
+    const latestTransaction = await Transaction.findOne({
+      attributes: ["id"],
+      raw: true,
+      order: [["id", "DESC"]],
+    });
+
+    let newNum = 1;
+    if (latestTransaction && latestTransaction.id) {
+      const lastNum = parseInt(latestTransaction.id.substring(2)) || 0;
+      newNum = lastNum + 1;
+    }
+    const newId = `TR${String(newNum).padStart(6, "0")}`;
+
+    // Cek apakah ID sudah ada
+    const exists = await Transaction.findOne({ where: { id: newId }, raw: true });
+    if (!exists) return newId;
+
+    // Jika sudah ada, lanjutkan loop
+    tryNum++;
+  }
+  // Fallback jika gagal
+  return `TR${String(Date.now()).slice(-6)}`;
 };
 
 /**
@@ -68,6 +92,7 @@ const createPayment = async (req, res) => {
       itemName = `Upgrade ke ${subscription.status}`;
       itemPrice = parseFloat(subscription.price);
       itemId = subscription_id;
+      category = "subscription";
 
       // Hindari duplikasi pembayaran untuk subscription yang sama
       const activePendingTransaction = await Transaction.findOne({
@@ -75,6 +100,7 @@ const createPayment = async (req, res) => {
           user_id: userId,
           subscription_id: subscription_id,
           status: "pending",
+          category: "subscription",
         },
       });
       if (activePendingTransaction) {
@@ -106,6 +132,22 @@ const createPayment = async (req, res) => {
       itemPrice = parseFloat(avatar.price);
       itemId = avatar_id;
       category = "avatar";
+
+      // Hindari duplikasi pembayaran avatar yang sama (pending)
+      const activePendingTransaction = await Transaction.findOne({
+        where: {
+          user_id: userId,
+          item_id: avatar_id,
+          status: "pending",
+          category: "item",
+        },
+      });
+      if (activePendingTransaction) {
+        return res.status(400).json({
+          message: "Anda sudah memiliki transaksi pending untuk item ini",
+          transaction_id: activePendingTransaction.id,
+        });
+      }
     } else {
       return res
         .status(400)
@@ -116,8 +158,8 @@ const createPayment = async (req, res) => {
     }
 
     // 3. Generate Order ID & Simpan Transaction (PENDING)
-    const orderId = generateOrderId();
-    const amount = itemPrice * 100; // Midtrans dalam satuan rupiah
+    const orderId = await generateOrderId();
+    const amount = itemPrice;
 
     const transaction = await Transaction.create({
       id: orderId,
@@ -126,9 +168,21 @@ const createPayment = async (req, res) => {
       item_id: type === "avatar" ? avatar_id : null,
       category: category,
       amount: itemPrice,
-      status: "pending",
-      payment_method: payment_method || "credit_card",
+      status: "success",
+      payment_method: "bank",
     });
+
+    // Jika payment berhasil dan tipe subscription, update subscription_id pada user
+    if (category === "subscription" && subscription_id) {
+      // Ambil id_subs dari Subscription
+      const subs = await Subscription.findOne({ where: { id_subs: transaction.subscription_id } });
+      if (subs) {
+        await User.update(
+          { subscription_id: subs.id_subs },
+          { where: { id: transaction.user_id } }
+        );
+      }
+    }
 
     // 4. Buat Snap Transaction
     const parameter = {
@@ -177,6 +231,94 @@ const createPayment = async (req, res) => {
   }
 };
 
+const forceVerifyStatus = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    // 1. Cari transaksi di database Anda
+    const transaction = await Transaction.findByPk(orderId);
+
+    if (!transaction) {
+      return res.status(404).json({ message: "Transaksi tidak ditemukan" });
+    }
+
+    // 2. Jika status di DB sudah sukses/failed, langsung kembalikan (tidak perlu tanya Midtrans)
+    if (transaction.status !== 'pending') {
+      return res.status(200).json({ 
+        data: {
+          orderId: transaction.id,
+          status: transaction.status,
+          payment_method: transaction.payment_method
+        }
+      });
+    }
+
+    // 3. Jika status masih PENDING, kita "Paksa" tanya ke Midtrans
+    console.log(`Force syncing status for: ${orderId}...`);
+    
+    // Memanggil API Get Status Midtrans
+    const midtransStatus = await snap.transaction.status(orderId);
+
+    /* Contoh respon midtransStatus:
+       { transaction_status: 'settlement', payment_type: 'gopay', ... }
+    */
+
+    // 4. Update Database berdasarkan respon terbaru Midtrans
+    let updatedStatus = transaction.status;
+    const midStatus = midtransStatus.transaction_status;
+
+    if (midStatus === 'capture' || midStatus === 'settlement') {
+      updatedStatus = 'success';
+    } else if (['cancel', 'deny', 'expire'].includes(midStatus)) {
+      updatedStatus = 'failed';
+    }
+
+    // Jika ada perubahan status dari pending ke success/failed, lakukan update
+    if (updatedStatus !== transaction.status) {
+      await Transaction.update(
+        { 
+          status: updatedStatus,
+          payment_method: midtransStatus.payment_type 
+        },
+        { where: { id: orderId } }
+      );
+
+      // JALANKAN LOGIKA BISNIS (Beri subscription/avatar)
+      if (updatedStatus === 'success') {
+        if (transaction.category === 'subscription') {
+          await User.update(
+            { subscription_id: transaction.subscription_id },
+            { where: { id: transaction.user_id } }
+          );
+        } else if (transaction.category === 'avatar') {
+          await UserAvatar.findOrCreate({
+            where: { user_id: transaction.user_id, avatar_id: transaction.item_id },
+            defaults: { purchased_at: new Date() }
+          });
+        }
+      }
+      console.log(`Transaction ${orderId} updated to ${updatedStatus} via Force Sync`);
+    }
+
+    // 5. Kembalikan data terbaru ke Flutter
+    return res.status(200).json({
+      data: {
+        orderId: orderId,
+        status: updatedStatus, // Status terbaru (success/failed/pending)
+        payment_method: midtransStatus.payment_type
+      }
+    });
+
+  } catch (error) {
+    console.error("Force Sync Error:", error);
+    // Jika error karena transaksi belum ada sama sekali di Midtrans (user belum buka halaman bayar)
+    if (error.status_code === '404') {
+        return res.status(200).json({ data: { orderId, status: 'pending' } });
+    }
+    return res.status(500).json({ message: "Gagal memverifikasi status ke Midtrans" });
+  }
+};
+
 /**
  * VERIFY PAYMENT - Terima notifikasi dari Midtrans
  * Endpoint: POST /api/payment/verify (webhook)
@@ -185,85 +327,168 @@ const createPayment = async (req, res) => {
 const verifyPayment = async (req, res) => {
   try {
     const notificationData = req.body;
-    const { order_id, transaction_status, payment_type } = notificationData;
+    const { 
+      id, 
+      status, 
+      payment_type, 
+      signature_key, 
+      status_code, 
+      gross_amount 
+    } = notificationData;
 
-    console.log("Midtrans Notification:", notificationData);
+    // --- 1. VALIDASI SIGNATURE KEY (WAJIB) ---
+    // Ganti 'YOUR_SERVER_KEY' dengan Server Key Midtrans anda
+    const serverKey = process.env.MIDTRANS_SERVER_KEY; 
+    const hash = crypto.createHash('sha512')
+      .update(`${id}${status_code}${gross_amount}${serverKey}`)
+      .digest('hex');
 
-    // 1. Cari Transaction by Order ID
-    const transaction = await Transaction.findOne({
-      where: { id: order_id },
-    });
+    if (signature_key !== hash) {
+      return res.status(400).json({ message: "Invalid Signature Key" });
+    }
+
+    // --- 2. CARI DATA TRANSAKSI ---
+    const transaction = await Transaction.findByPk(id);
 
     if (!transaction) {
-      return res.status(404).json({
-        message: "Transaksi tidak ditemukan",
-      });
+      return res.status(404).json({ message: "Transaksi tidak ditemukan" });
     }
 
-    // 2. Tentukan status berdasarkan transaction_status dari Midtrans
+    // Hindari memproses ulang transaksi yang sudah sukses/selesai
+    if (transaction.status === 'success') {
+      return res.status(200).json({ message: "Transaksi sudah sukses sebelumnya" });
+    }
+
+    // --- 3. LOGIKA PENENTUAN STATUS ---
     let newStatus = "pending";
-    if (
-      transaction_status === "capture" ||
-      transaction_status === "settlement"
-    ) {
+    if (status === "capture" || status === "settlement") {
       newStatus = "success";
-    } else if (transaction_status === "pending") {
-      newStatus = "pending";
-    } else if (
-      transaction_status === "cancel" ||
-      transaction_status === "expire" ||
-      transaction_status === "deny"
-    ) {
+    } else if (["cancel", "expire", "deny"].includes(status)) {
       newStatus = "failed";
+    } else if (status === "pending") {
+      newStatus = "pending";
     }
 
-    // 3. Update Transaction Status
+    // --- 4. UPDATE TRANSACTION (Gunakan Transaction Sequelize jika memungkinkan) ---
     await Transaction.update(
-      {
-        status: newStatus,
-        payment_method: payment_type,
+      { 
+        status: newStatus, 
+        payment_method: payment_type 
       },
-      {
-        where: { id: order_id },
-      }
+      { where: { id: order_id } }
     );
 
-    // 4. Jika SUCCESS, lakukan action berdasarkan category
+    // --- 5. LOGIKA BUSINESS (Hanya jika status berubah jadi success) ---
     if (newStatus === "success") {
       if (transaction.category === "subscription") {
-        // UPDATE User Subscription
         await User.update(
           { subscription_id: transaction.subscription_id },
           { where: { id: transaction.user_id } }
         );
-        console.log(
-          `User ${transaction.user_id} upgraded to subscription ${transaction.subscription_id}`
-        );
       } else if (transaction.category === "avatar") {
-        // TAMBAH Avatar ke Inventory User (UserAvatar)
-        await UserAvatar.create({
-          user_id: transaction.user_id,
-          avatar_id: transaction.item_id,
-          purchased_at: new Date(),
+        // Cek dulu apakah sudah punya agar tidak duplikat (Idempotency)
+        const [userAvatar, created] = await UserAvatar.findOrCreate({
+          where: { 
+            user_id: transaction.user_id, 
+            avatar_id: transaction.item_id 
+          },
+          defaults: { purchased_at: new Date() }
         });
-        console.log(
-          `User ${transaction.user_id} purchased avatar ${transaction.item_id}`
-        );
       }
     }
 
-    // 5. Response ke Midtrans (status 200)
-    return res.status(200).json({
-      message: "Notifikasi pembayaran diproses",
-      status: newStatus,
-    });
+    return res.status(200).json({ message: "OK", status: newStatus });
+
   } catch (error) {
     console.error("Verify Payment Error:", error);
-    return res.status(500).json({
-      message: `Gagal verifikasi payment - ${error.message}`,
-    });
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 };
+
+// const verifyPayment = async (req, res) => {
+//   try {
+//     const notificationData = req.body;
+//     const { order_id, transaction_status, payment_type } = notificationData;
+
+//     console.log("Midtrans Notification:", notificationData);
+
+//     // 1. Cari Transaction by Order ID
+//     const transaction = await Transaction.findOne({
+//       where: { id: order_id },
+//     });
+
+//     if (!transaction) {
+//       return res.status(404).json({
+//         message: "Transaksi tidak ditemukan",
+//       });
+//     }
+
+//     // 2. Tentukan status berdasarkan transaction_status dari Midtrans
+//     let newStatus = "pending";
+//     if (
+//       transaction_status === "capture" ||
+//       transaction_status === "settlement"
+//     ) {
+//       newStatus = "success";
+//     } else if (transaction_status === "pending") {
+//       newStatus = "pending";
+//     } else if (
+//       transaction_status === "cancel" ||
+//       transaction_status === "expire" ||
+//       transaction_status === "deny"
+//     ) {
+//       newStatus = "failed";
+//     }
+
+//     // 3. Update Transaction Status
+//     await Transaction.update(
+//       {
+//         status: newStatus,
+//         payment_method: payment_type,
+//       },
+//       {
+//         where: { id: order_id },
+//       }
+//     );
+
+//     // 4. Jika SUCCESS, lakukan action berdasarkan category
+//     if (newStatus === "success") {
+//       if (transaction.category === "subscription") {
+//         // UPDATE User Subscription
+//         if (transaction.subscription_id) {
+//           await User.update(
+//             { subscription_id: transaction.subscription_id },
+//             { where: { id: transaction.user_id } }
+//           );
+//           console.log(
+//             `User ${transaction.user_id} upgraded to subscription ${transaction.subscription_id}`
+//           );
+//         }
+//       } else if (transaction.category === "avatar") {
+//         // TAMBAH Avatar ke Inventory User (UserAvatar)
+//         await UserAvatar.create({
+//           user_id: transaction.user_id,
+//           avatar_id: transaction.item_id,
+//           purchased_at: new Date(),
+//         });
+//         console.log(
+//           `User ${transaction.user_id} purchased avatar ${transaction.item_id}`
+//         );
+//       }
+//     }
+
+//     // 5. Response ke Midtrans (status 200)
+//     return res.status(200).json({
+//       message: "Notifikasi pembayaran diproses",
+//       status: newStatus,
+//     });
+//   } catch (error) {
+//     console.error("Verify Payment Error:", error);
+//     return res.status(500).json({
+//       message: `Gagal verifikasi payment - ${error.message}`,
+//     });
+//   }
+// };
 
 /**
  * CHECK PAYMENT STATUS
@@ -319,7 +544,7 @@ const checkPaymentStatus = async (req, res) => {
           );
 
           // Update user sesuai kategori
-          if (transaction.category === "subscription") {
+          if (transaction.category === "subscription" && transaction.subscription_id) {
             await User.update(
               { subscription_id: transaction.subscription_id },
               { where: { id: userId } }
@@ -401,58 +626,53 @@ const getPaymentHistory = async (req, res) => {
     const transactions = await Transaction.findAll({
       where: { user_id: userId },
       include: [
+        // 1. Join ke Subscription (Jika transaksinya beli paket)
         {
           model: Subscription,
-          attributes: ["id_subs", "status", "price"],
-          as: "subscription_detail",
+          as: 'subscription_detail', // Pastikan alias ini ada di models/index.js
+          attributes: ['status', 'price'],
         },
+        // 2. Join ke Item (Jika transaksinya beli Avatar/Item)
         {
-          model: Avatar,
-          attributes: ["id", "name", "price", "image_url"],
-          as: "item_detail",
-        },
-      ],
-      order: [["created_at", "DESC"]],
+          model: Item,
+          as: 'item_detail', // Pastikan alias ini ada di models/index.js
+          attributes: ['name', 'price'],
+        }
+      ]
     });
 
-    if (!transactions.length) {
-      return res.status(200).json({
-        message: "Belum ada riwayat pembayaran",
-        data: [],
-      });
-    }
+    // FORMATTING DATA
+    // Kita harus menentukan 'item_name' berdasarkan kategori
+    const formattedData = transactions.map(t => {
+      const trx = t.get({ plain: true }); // Ubah ke plain object
+      let finalItemName = "Unknown Item";
+      let finalItemPrice = null;
 
-    const formatted = transactions.map((t) => {
-      const itemInfo =
-        t.category === "subscription"
-          ? {
-              type: "subscription",
-              name: t.subscription_detail?.status || "Unknown",
-              price: t.subscription_detail?.price || t.amount,
-            }
-          : {
-              type: "avatar",
-              name: t.item_detail?.name || "Unknown Avatar",
-              price: t.item_detail?.price || t.amount,
-              image: t.item_detail?.image_url || null,
-            };
+      // LOGIKANYA:
+      if (trx.category === 'subscription') {
+        if (trx.subscription_detail) {
+          finalItemName = `Paket ${trx.subscription_detail.status}`;
+          finalItemPrice = trx.subscription_detail.price;
+        } else {
+          finalItemName = "Paket (data tidak ditemukan)";
+        }
+      } else if (trx.category === 'item') {
+        if (trx.item_detail) {
+          finalItemName = trx.item_detail.name;
+          finalItemPrice = trx.item_detail.price;
+        } else {
+          finalItemName = "Item (data tidak ditemukan)";
+        }
+      }
 
       return {
-        transaction_id: t.id,
-        category: t.category,
-        item: itemInfo,
-        amount: parseFloat(t.amount),
-        status: t.status,
-        payment_method: t.payment_method,
-        created_at: t.created_at,
-        updated_at: t.updated_at,
+        ...trx,
+        item_name: finalItemName, // <--- Ini yang dibaca Flutter
+        item_price: finalItemPrice,
       };
     });
 
-    return res.status(200).json({
-      message: "Riwayat pembayaran berhasil diambil",
-      data: formatted,
-    });
+    res.status(200).json({ data: formattedData });
   } catch (error) {
     console.error("Get Payment History Error:", error);
     return res.status(500).json({
@@ -518,28 +738,35 @@ const cancelPayment = async (req, res) => {
   }
 };
 
-const getPlanPackageFeatures = async (req, res) => {
+const getAllSubscriptionPlans = async (req, res) => {
   try {
-    const { plan_status } = req.params;
-    const subscription = await Subscription.findOne({
-      where: { status: plan_status },
+    const subscriptions = await Subscription.findAll({
+      attributes: ["id_subs", "status", "price"],
+      order: [["id_subs", "ASC"]],
     });
 
-    if (!subscription) {
-      return res.status(404).json({ message: "Paket subscription tidak ditemukan" });
+    if (!subscriptions || subscriptions.length === 0) {
+      return res.status(404).json({
+        message: "Tidak ada paket subscription yang tersedia",
+      });
     }
-    const features = getPackageFeatures(subscription.status);
+
+    const plansData = subscriptions.map((sub) => ({
+      id: sub.id_subs,
+      name: sub.status,
+      price: parseFloat(sub.price),
+    }));
 
     return res.status(200).json({
-      message: 'Package features berhasil diambil',
-      data: {
-        id: subscription.id_subs,
-        name: subscription.status,
-        price: parseFloat(subscription.price),
-      },
+      message: "Semua paket subscription berhasil diambil",
+      data: plansData,
+      total_plans: plansData.length,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Get All Subscription Plans Error:", error);
+    return res.status(500).json({
+      message: `Gagal ambil semua paket subscription - ${error.message}`,
+    });
   }
 };
 
@@ -667,10 +894,11 @@ const setActiveAvatar = async (req, res) => {
 module.exports = {
   createPayment,
   verifyPayment,
+  forceVerifyStatus,
   checkPaymentStatus,
   getPaymentHistory,
   cancelPayment,
-  getPlanPackageFeatures,
+  getAllSubscriptionPlans,
   getUserAvatars,
   setActiveAvatar,
 };

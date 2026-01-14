@@ -2,10 +2,11 @@ const express = require("express");
 const {
   createPayment,
   verifyPayment,
+  forceVerifyStatus,
   checkPaymentStatus,
   getPaymentHistory,
   cancelPayment,
-  getPlanPackageFeatures,
+  getAllSubscriptionPlans,
   getUserAvatars,
   setActiveAvatar,
 } = require("../controllers/paymentController");
@@ -29,6 +30,8 @@ router.post(
   logActivity("Payment: Create"),
   createPayment
 );
+
+router.get('/verify/:orderId', forceVerifyStatus);
 
 /**
  * POST /api/payment/verify (Webhook dari Midtrans)
@@ -72,8 +75,8 @@ router.post(
 router.get(
   "/subscription/packages/features",
   authenticate,
-  logActivity("Payment: Get Package Features"),
-  getPlanPackageFeatures
+  logActivity("Payment: Get All Subscription Plans"),
+  getAllSubscriptionPlans
 );
 
 // ===== AVATAR MANAGEMENT =====
