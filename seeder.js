@@ -200,7 +200,7 @@ async function seedDatabase() {
     console.log("Database tables created successfully!");
 
     // === 3. SEED REFERENCE DATA ===
-    
+
     // A. Subscriptions
     console.log("Seeding Subscriptions...");
     await connection.query(
@@ -224,7 +224,7 @@ async function seedDatabase() {
     // Kita buat item yang merepresentasikan Subscription dan Avatar
     console.log("Seeding Items (Shop Catalog)...");
     await connection.query(
-        `INSERT INTO item (name, description, price, type, reference_id, image_url) VALUES 
+      `INSERT INTO item (name, description, price, type, reference_id, image_url) VALUES 
         -- Item Subscription
         ('Premium Subscription', 'Unlock all features', 50000, 'subscription', 2, NULL),
         
@@ -240,34 +240,61 @@ async function seedDatabase() {
     const firebaseUsers = listUsersResult.users;
 
     if (firebaseUsers.length > 0) {
-      console.log(`   Found ${firebaseUsers.length} users in Firebase. Syncing...`);
+      console.log(
+        `   Found ${firebaseUsers.length} users in Firebase. Syncing...`
+      );
 
       const userValues = [];
-      const [teacherRows] = await connection.query("SELECT MAX(CAST(SUBSTRING(id,3) AS UNSIGNED)) AS maxNum FROM user WHERE role = 'teacher'");
-      const [studentRows] = await connection.query("SELECT MAX(CAST(SUBSTRING(id,3) AS UNSIGNED)) AS maxNum FROM user WHERE role = 'student'");
-      
+      const [teacherRows] = await connection.query(
+        "SELECT MAX(CAST(SUBSTRING(id,3) AS UNSIGNED)) AS maxNum FROM user WHERE role = 'teacher'"
+      );
+      const [studentRows] = await connection.query(
+        "SELECT MAX(CAST(SUBSTRING(id,3) AS UNSIGNED)) AS maxNum FROM user WHERE role = 'student'"
+      );
+
       let teacherCount = (teacherRows[0]?.maxNum || 0) + 1;
       let studentCount = (studentRows[0]?.maxNum || 0) + 1;
 
       for (const fbUser of firebaseUsers) {
         const name = fbUser.displayName || "Anonymous";
         const email = fbUser.email;
-        const username = email ? email.split("@")[0] : "user_" + Math.random().toString(36).substring(2, 8);
+        const username = email
+          ? email.split("@")[0]
+          : "user_" + Math.random().toString(36).substring(2, 8);
 
         if (username === "admin") {
-          userValues.push(["AD001", "Administrator", "admin", email, fbUser.uid, "admin", 1, null]);
+          userValues.push([
+            "AD001",
+            "Administrator",
+            "admin",
+            email,
+            fbUser.uid,
+            "admin",
+            1,
+            null,
+          ]);
           continue;
         }
 
-        const role = fbUser.customClaims?.role === "teacher" ? "teacher" : "student";
+        const role =
+          fbUser.customClaims?.role === "teacher" ? "teacher" : "student";
         const prefix = role === "teacher" ? "TE" : "ST";
         const idNumber = role === "teacher" ? teacherCount++ : studentCount++;
         const generatedId = `${prefix}${idNumber.toString().padStart(3, "0")}`;
-        
+
         // Default avatar NULL (user belum pakai avatar) atau set default avatar ID 1
         const defaultAvatarId = 1; // Basic Student
-        
-        userValues.push([generatedId, name, username, email, fbUser.uid, role, 1, defaultAvatarId]);
+
+        userValues.push([
+          generatedId,
+          name,
+          username,
+          email,
+          fbUser.uid,
+          role,
+          1,
+          defaultAvatarId,
+        ]);
       }
 
       const insertQuery = `INSERT INTO user (id, name, username, email, firebase_uid, role, subscription_id, current_avatar_id) VALUES ?`;
@@ -277,8 +304,8 @@ async function seedDatabase() {
 
     // === 5. SEED DUMMY USERS (Jika Kosong) ===
     if (firebaseUsers.length === 0) {
-        console.log("   Adding dummy users...");
-        await connection.query(`
+      console.log("   Adding dummy users...");
+      await connection.query(`
           INSERT INTO user (id, name, username, email, firebase_uid, role, subscription_id, current_avatar_id) VALUES
           ('AD001', 'Administrator', 'admin', 'admin@quizify.com', NULL, 'admin', 1, NULL),
           ('TE001', 'John Teacher', 'john_teacher', 'john@teacher.com', NULL, 'teacher', 2, 3), -- Pakai Robo Teacher
@@ -288,20 +315,6 @@ async function seedDatabase() {
           ('ST003', 'Charlie Pupil', 'charlie_pupil', 'charlie@student.com', NULL, 'student', 2, 1)
         `);
     }
-
-    console.log("Seeding Transactions...");
-    await connection.query(`
-      INSERT INTO transaction (id, user_id, subscription_id, amount, status, payment_method, created_at) VALUES
-      -- TE001 Beli Premium (Sukses)
-      ('TR001', 'TE001', 2, 50000, 'success', 'Bank Transfer', '2024-11-20 10:00:00'),
-      
-      -- ST003 Beli Premium (Sukses)
-      ('TR002', 'ST003', 2, 50000, 'success', 'E-Wallet', '2024-12-05 14:00:00'),
-      
-      -- Ophelia (ST005) Mencoba Beli Premium (Pending)
-      ('TR003', 'ST005', 2, 50000, 'pending', 'Credit Card', NOW())
-    `);
-
 
     // Add dummy quizzes
     // === 6. SEED TRANSACTIONS & INVENTORY ===

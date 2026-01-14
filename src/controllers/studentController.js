@@ -35,11 +35,10 @@ const startQuiz = async (req, res) => {
       },
     });
 
+    // if there is an active session remove that session
     if (activeSession) {
-      return res.status(400).json({
-        message: "Anda memiliki sesi kuis yang aktif",
-        session_id: activeSession.id,
-      });
+      await activeSession.destroy();
+      console.log("Active session removed");
     }
 
     // buat ID
@@ -87,10 +86,8 @@ const startQuizByCode = async (req, res) => {
       },
     });
     if (activeSession) {
-      return res.status(400).json({
-        message: "Anda memiliki sesi kuis yang aktif",
-        session_id: activeSession.id,
-      });
+      await activeSession.destroy();
+      console.log("Active session removed");
     }
     // buat ID
     const jumlahSession = await QuizSession.count();
