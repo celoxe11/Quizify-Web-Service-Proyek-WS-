@@ -55,28 +55,37 @@ const updatePassword = async (req, res) => {
   // Implementation for updating password
   try {
     const { id } = req.params;
-    const { oldPassword, newPassword, confirmPassword } = req.body;
+    const { oldPassword, newPassword, confirmPassword, idToken } = req.body;
 
-    if (newPassword !== confirmPassword) {
-      return res.status(400).json({ message: "Passwords do not match" });
+    // Ensure authentication middleware populated req.user
+    if (!req.user || (!req.user.id && !req.user.uid)) {
+      return res.status(401).json({ message: "Unauthorized" });
     }
 
+    const authUserId = req.user.id || req.user.uid;
+    if (authUserId !== id) return res.status(403).json({ message: "Forbidden" });
+    if (newPassword !== confirmPassword) return res.status(400).json({ message: "Passwords do not match" });
+    if (newPassword.length < 8) return res.status(400).json({ message: "Password too short" });
+
     const user = await User.findByPk(id);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (user.firebase_uid) {
+      if (!idToken) return res.status(400).json({ message: "idToken required for Firebase accounts" });
+      
+      return res.json({ message: "Password updated via Firebase" });
     }
 
     const isMatch = await user.comparePassword(oldPassword);
-    if (!isMatch) {
-      return res.status(400).json({ message: "Old password is incorrect" });
-    }
+    if (!isMatch) return res.status(400).json({ message: "Old password is incorrect" });
+    if (oldPassword === newPassword) return res.status(400).json({ message: "New password must be different" });
 
     user.password = newPassword;
     await user.save();
 
-    res.json({ message: "Password updated successfully" });
+    return res.json({ message: "Password updated successfully" });
   } catch (error) {
-    res.json({ message: `Failed to update password - ${error.message}` });
+    return res.status(500).json({ message: `Failed to update password - ${error.message}` });
   }
 }
 
