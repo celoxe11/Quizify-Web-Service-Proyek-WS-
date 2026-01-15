@@ -471,9 +471,9 @@ const getUsersQuiz = async (req, res) => {
       attributes: ["id", "title", "description", "created_at"],
     });
 
-    if (quizzes.length === 0) {
-      return res.status(404).json({ message: "Tidak ada kuis ditemukan" });
-    }
+    // if (quizzes.length === 0) {
+    //   return res.status(404).json({ message: "Tidak ada kuis ditemukan" });
+    // }
 
     // Format created_at date
     quizzes.forEach((quiz) => {
