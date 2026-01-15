@@ -7,7 +7,7 @@ dotenv.config();
 
 // note: ini buat generate question
 const isPremium = (req, res, next) => {
-  if (req.user.subscription_id === 2) {
+  if (req.user.subscription_id === 2 || req.user.subscription_id === 4) {
     return next();
   }
   return res.status(403).json({
@@ -34,7 +34,7 @@ const alreadyMadeQuizToday = async (req, res, next) => {
     // Check if user is free tier
     if (req.user.subscription_id === 1) {
       const quiz_id = req.body.quiz_id;
-      
+
       // If quiz_id is provided, verify it exists and user owns it
       if (quiz_id) {
         const existingQuiz = await Quiz.findOne({
@@ -43,13 +43,13 @@ const alreadyMadeQuizToday = async (req, res, next) => {
             created_by: user_id,
           },
         });
-        
+
         // If quiz exists, it's an update - allow it
         if (existingQuiz) {
           return next();
         }
       }
-      
+
       // For new quiz creation, check if user created a quiz today
       const quizCount = await Quiz.count({
         where: {
@@ -60,7 +60,7 @@ const alreadyMadeQuizToday = async (req, res, next) => {
           },
         },
       });
-      
+
       if (quizCount > 0) {
         return res
           .status(403)
@@ -78,17 +78,17 @@ const uploadImageLimit = async (req, res, next) => {
   try {
     if (req.user.subscription_id === 1) {
       const questions = req.body.questions || [];
-      
+
       // Count how many questions have images
-      const imageCount = questions.filter(q => q.question_image).length;
-      
+      const imageCount = questions.filter((q) => q.question_image).length;
+
       if (imageCount > 3) {
         return res.status(403).json({
-          message: "Anda hanya dapat mengunggah maksimal 3 gambar per kuis"
+          message: "Anda hanya dapat mengunggah maksimal 3 gambar per kuis",
         });
       }
     }
-    
+
     next();
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -98,5 +98,5 @@ const uploadImageLimit = async (req, res, next) => {
 module.exports = {
   isPremium,
   alreadyMadeQuizToday,
-  uploadImageLimit
+  uploadImageLimit,
 };
