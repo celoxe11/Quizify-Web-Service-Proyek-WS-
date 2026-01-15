@@ -9,6 +9,7 @@ const authRoutes = require("./src/routes/authRoutes");
 const imageRoutes = require("./src/routes/imageRoutes");
 const userRoutes = require("./src/routes/userRoutes");
 const paymentRoutes = require("./src/routes/paymentRoutes");
+const shopRoutes = require('./src/routes/shopRoutes');
 const cors = require("cors");
 
 const admin = require("firebase-admin");
@@ -29,6 +30,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/uploads", imageRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/payment", paymentRoutes);
+app.use('/api/shop', shopRoutes);
 
 app.get("/", (req, res) => {
   res.json({ message: "Welcome to Quizify API" });
