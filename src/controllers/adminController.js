@@ -12,7 +12,7 @@ const {
   SubmissionAnswer,
   QuizSession,
   Transaction,
-  Item
+  Item,
 } = require("../models/index");
 
 const { formatImageUrl } = require("../utils/helpers");
@@ -1430,6 +1430,7 @@ const getAllTransactions = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 module.exports = {
   getLog,

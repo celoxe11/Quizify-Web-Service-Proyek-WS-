@@ -1,0 +1,224 @@
+const { Avatar, Item, User } = require("../models");
+const Joi = require("joi");
+
+// 1. GET ALL AVATARS (Termasuk yang soft-deleted agar admin bisa restore)
+const getAllAvatars = async (req, res) => {
+  try {
+    const avatars = await Avatar.findAll({
+      order: [["created_at", "DESC"]],
+    });
+    return res.status(200).json({ data: avatars });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+// 2. CREATE AVATAR
+const createAvatar = async (req, res) => {
+  const schema = Joi.object({
+    name: Joi.string().min(3).max(100).required(),
+    description: Joi.string().allow(null, "").optional(),
+    image_url: Joi.string().uri().required(), // MODE MANUAL (sementara)
+    price: Joi.number().min(0).required(),
+    rarity: Joi.string()
+      .valid("common", "rare", "epic", "legendary")
+      .required(),
+  });
+
+  const { error, value } = schema.validate(req.body);
+  if (error) {
+    return res.status(400).json({
+      message: "Validation error",
+      detail: error.details[0].message,
+    });
+  }
+
+  const transaction = await sequelize.transaction();
+
+  try {
+    // 1. Create Avatar
+    const newAvatar = await Avatar.create(
+      {
+        name: value.name,
+        description: value.description,
+        image_url: value.image_url,
+        price: value.price,
+        rarity: value.rarity,
+        is_active: true,
+      },
+      { transaction }
+    );
+
+    // 2. Create Shop Item (Catalog)
+    await Item.create(
+      {
+        name: `${value.name} Avatar`,
+        description: value.description,
+        price: value.price,
+        type: "avatar",
+        reference_id: newAvatar.id,
+        image_url: value.image_url,
+        is_active: true,
+      },
+      { transaction }
+    );
+
+    await transaction.commit();
+
+    return res.status(201).json({
+      message: "Avatar berhasil dibuat",
+      data: newAvatar,
+    });
+
+  } catch (err) {
+    await transaction.rollback();
+
+    console.error("CREATE AVATAR ERROR:", err);
+
+    return res.status(500).json({
+      message: "Gagal membuat avatar",
+    });
+  }
+};
+
+
+// 3. UPDATE AVATAR
+const updateAvatar = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const avatar = await Avatar.findByPk(id);
+    if (!avatar) return res.status(404).json({ message: "Avatar not found" });
+
+    // Update fields
+    if (req.body.name) avatar.name = req.body.name;
+    if (req.body.price) avatar.price = req.body.price;
+    if (req.body.rarity) avatar.rarity = req.body.rarity;
+    if (req.body.image_url) avatar.image_url = req.body.image_url;
+    
+    // Restore jika di-update statusnya
+    if (req.body.is_active !== undefined) avatar.is_active = req.body.is_active;
+
+    await avatar.save();
+    return res.status(200).json({ message: "Avatar updated", data: avatar });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+};
+
+// 4. SOFT DELETE (Set is_active = 0)
+const deleteAvatar = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const avatar = await Avatar.findByPk(id);
+    if (!avatar) return res.status(404).json({ message: "Avatar not found" });
+
+    // Toggle Status (Kalau aktif jadi mati, kalau mati jadi aktif)
+    // Atau paksa mati: avatar.is_active = 0;
+    avatar.is_active = !avatar.is_active; 
+    
+    await avatar.save();
+
+    const statusMsg = avatar.is_active ? "Restored" : "Soft Deleted";
+    return res.status(200).json({ message: `Avatar ${statusMsg}`, data: avatar });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+};
+
+const getUserInventory = async (req, res) => {
+  try {
+    // Ambil ID user yang sedang login dari Token
+    const userId = req.user.id || req.user.uid;
+
+    console.log("Fetching inventory for:", userId);
+
+    const user = await User.findOne({
+      where: { id: userId },
+      attributes: ['id', 'name', 'current_avatar_id'], // Kita butuh current_avatar_id untuk tahu mana yg dipakai
+      include: [
+        {
+          model: Avatar,
+          as: 'inventory', // <--- PENTING: Sesuai alias di models/index.js
+          attributes: ['id', 'name', 'image_url', 'rarity', 'price'],
+          through: {
+            attributes: ['purchased_at'] // Ambil data kapan belinya dari tabel pivot
+          }
+        }
+      ]
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Format data agar Frontend mudah membacanya
+    // Kita tambahkan flag 'is_equipped'
+    const formattedInventory = user.inventory.map(avatar => {
+      const av = avatar.toJSON();
+      return {
+        id: av.id,
+        name: av.name,
+        image_url: av.image_url,
+        rarity: av.rarity,
+        price: parseFloat(av.price), // Harga beli (info saja)
+        purchased_at: av.UserAvatar.purchased_at,
+        
+        // Cek apakah avatar ini sedang dipakai?
+        is_equipped: user.current_avatar_id === av.id
+      };
+    });
+
+    return res.status(200).json({
+      message: "Inventory fetched successfully",
+      data: formattedInventory
+    });
+
+  } catch (error) {
+    console.error("Get Inventory Error:", error);
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+// [BARU] EQUIP AVATAR (Ganti Avatar Aktif)
+const equipAvatar = async (req, res) => {
+  try {
+    const userId = req.user.id || req.user.uid;
+    const { avatar_id } = req.body;
+
+    const user = await User.findOne({ 
+      where: { id: userId },
+      include: [{ model: Avatar, as: 'inventory' }] 
+    });
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Cek apakah user MEMILIKI avatar tersebut di inventory-nya?
+    const hasAvatar = user.inventory.some(a => a.id === parseInt(avatar_id));
+    
+    if (!hasAvatar) {
+      return res.status(403).json({ message: "You do not own this avatar!" });
+    }
+
+    // Update Avatar Aktif
+    user.current_avatar_id = avatar_id;
+    await user.save();
+
+    return res.status(200).json({ 
+      message: "Avatar equipped successfully", 
+      current_avatar_id: avatar_id 
+    });
+
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+
+module.exports = { 
+    getAllAvatars, 
+    createAvatar, 
+    updateAvatar, 
+    deleteAvatar,
+    getUserInventory,
+    equipAvatar
+};

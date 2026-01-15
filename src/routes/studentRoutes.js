@@ -20,6 +20,7 @@ const {
 
 const { authenticate, isStudent } = require("../middleware/authMiddleware");
 const logActivity = require("../middleware/logActivity");
+const { getUserInventory, equipAvatar } = require("../controllers/avatarController");
 
 const router = express.Router();
 router.post(
@@ -126,5 +127,19 @@ router.post(
   authenticate, 
   isStudent, 
   buySubscription);
+
+router.get(
+  "/inventory",
+  authenticate,
+  // isStudent, // Boleh diaktifkan jika khusus student
+  getUserInventory
+);
+
+// POST Equip Avatar (Ganti foto profil)
+router.post(
+  "/equip-avatar",
+  authenticate,
+  equipAvatar
+);
  
 module.exports = router;

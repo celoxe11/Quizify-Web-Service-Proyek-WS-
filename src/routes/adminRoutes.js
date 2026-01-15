@@ -34,6 +34,7 @@ const {
 const logActivity = require("../middleware/logActivity");
 const { authenticate, isAdmin } = require("../middleware/authMiddleware");
 const { saveQuizWithQuestions } = require("../controllers/teacherController");
+const { getAllAvatars, createAvatar, updateAvatar, deleteAvatar } = require("../controllers/avatarController");
 
 const router = express.Router();
 
@@ -221,4 +222,31 @@ router.get(
   logActivity("Admin: Get Transaction"), 
   getAllTransactions
 );
+
+// AVATAR MANAGEMENT
+router.get(
+  "/avatars", 
+  authenticate, 
+  isAdmin, 
+  getAllAvatars
+);
+router.post(
+  "/avatars", 
+  authenticate, 
+  isAdmin, 
+  createAvatar
+);
+router.put(
+  "/avatars/:id", 
+  authenticate, 
+  isAdmin, 
+  updateAvatar
+);
+router.patch(
+  "/avatars/:id/status", 
+  authenticate, 
+  isAdmin, 
+  deleteAvatar
+);
+
 module.exports = router;
