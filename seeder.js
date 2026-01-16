@@ -46,7 +46,7 @@ async function seedDatabase() {
         status VARCHAR(50) DEFAULT 'Free',
         price DECIMAL(10, 2) DEFAULT 0,
         PRIMARY KEY (id_subs)
-      ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+      ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
       CREATE TABLE avatar (
         id INT NOT NULL AUTO_INCREMENT,
@@ -59,7 +59,7 @@ async function seedDatabase() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY (id)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
       CREATE TABLE item (
         id INT NOT NULL AUTO_INCREMENT,
@@ -73,7 +73,7 @@ async function seedDatabase() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY (id)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
       -- B. USER & PIVOT
       CREATE TABLE user (
@@ -100,7 +100,7 @@ async function seedDatabase() {
         avatar_id INT NOT NULL,
         purchased_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (id)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
       -- C. TRANSAKSI (UPDATE STRUKTUR)
       CREATE TABLE transaction (
@@ -115,7 +115,7 @@ async function seedDatabase() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY (id)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
       CREATE TABLE quiz (
         id VARCHAR(10) NOT NULL,
