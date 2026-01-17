@@ -161,7 +161,7 @@ const createTierList = async (req, res) => {
 
 const updateTierList = async (req, res) => {
   // Ambil ID dari parameter URL (/subscriptions/:id)
-  const { id } = req.params; 
+  const { id } = req.params;
 
   const schema = Joi.object({
     status: Joi.string().trim().min(1).required(),
@@ -176,7 +176,9 @@ const updateTierList = async (req, res) => {
     const subscription = await Subscription.findByPk(id);
 
     if (!subscription) {
-      return res.status(404).json({ message: "Subscription tier tidak ditemukan" });
+      return res
+        .status(404)
+        .json({ message: "Subscription tier tidak ditemukan" });
     }
 
     const statusTrimmed = value.status.trim();
@@ -184,14 +186,16 @@ const updateTierList = async (req, res) => {
     // Cek duplikat nama (Kecuali punya diri sendiri)
     // "Cari yang namanya sama TAPI id-nya bukan id yang sedang diedit"
     const duplicateCheck = await Subscription.findOne({
-      where: { 
+      where: {
         status: statusTrimmed,
-        id_subs: { [Op.ne]: id } // Op.ne = Not Equal
-      }
+        id_subs: { [Op.ne]: id }, // Op.ne = Not Equal
+      },
     });
 
     if (duplicateCheck) {
-      return res.status(409).json({ message: "Nama status sudah digunakan oleh tier lain" });
+      return res
+        .status(409)
+        .json({ message: "Nama status sudah digunakan oleh tier lain" });
     }
 
     // Update Data
@@ -203,14 +207,11 @@ const updateTierList = async (req, res) => {
       message: "Subscription berhasil diupdate",
       data: subscription,
     });
-
   } catch (error) {
     console.error("Error update subscription:", error);
     return res.status(500).json({ message: error.message });
   }
 };
-
-
 
 // Ambil semua tier subscription
 const getTierList = async (req, res) => {
@@ -938,6 +939,49 @@ const getQuizAccuracy = async (req, res) => {
   }
 };
 
+const getStudentsAnswersBySession = async (req, res) => {
+  try {
+    const { session_id } = req.params;
+    const session = await QuizSession.findOne({
+      where: {
+        id: session_id,
+      },
+    });
+    if (!session) {
+      return res
+        .status(404)
+        .json({ message: "Tidak ada sesi quiz yang ditemukan" });
+    }
+    // Get answers for the session
+    const answers = await SubmissionAnswer.findAll({
+      where: {
+        quiz_session_id: session.id,
+      },
+      include: [
+        {
+          model: Question,
+          required: false,
+          attributes: [
+            "id",
+            "type",
+            "difficulty",
+            "question_text",
+            "correct_answer",
+            "options",
+          ],
+        },
+      ],
+    });
+    res.status(200).json({
+      message: "Berhasil mendapatkan jawaban siswa",
+      session: session,
+      answers: answers,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 const subscribe = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -1342,7 +1386,7 @@ const toggleUserStatus = async (req, res) => {
 
 // Update User (Role & Subscription)
 const updateUser = async (req, res) => {
-  const admin = require("firebase-admin"); 
+  const admin = require("firebase-admin");
   console.log("📥 [Backend] Masuk Update User");
   console.log("🔑 ID Params:", req.params.id);
   console.log("📦 Body:", req.body);
@@ -1356,8 +1400,10 @@ const updateUser = async (req, res) => {
     }
 
     // Cegah edit Role Admin Utama (Optional security)
-    if (user.role === 'admin' && role !== 'admin') {
-      return res.status(403).json({ message: "Tidak dapat mengubah role Admin utama" });
+    if (user.role === "admin" && role !== "admin") {
+      return res
+        .status(403)
+        .json({ message: "Tidak dapat mengubah role Admin utama" });
     }
 
     // Update Data
@@ -1368,14 +1414,15 @@ const updateUser = async (req, res) => {
 
     // Jika Role berubah, update juga Custom Claims Firebase (Penting!)
     if (user.firebase_uid) {
-       await admin.auth().setCustomUserClaims(user.firebase_uid, { role: user.role });
+      await admin
+        .auth()
+        .setCustomUserClaims(user.firebase_uid, { role: user.role });
     }
 
-    return res.status(200).json({ 
+    return res.status(200).json({
       message: `User ${user.name} berhasil diperbarui`,
-      user
+      user,
     });
-
   } catch (error) {
     console.error("Update User Error:", error);
     return res.status(500).json({ message: error.message });
@@ -1385,35 +1432,34 @@ const updateUser = async (req, res) => {
 const getAllTransactions = async (req, res) => {
   try {
     const transactions = await Transaction.findAll({
-      order: [['created_at', 'DESC']],
+      order: [["created_at", "DESC"]],
       include: [
         // 1. Join ke Subscription (Jika transaksinya beli paket)
         {
           model: Subscription,
-          as: 'subscription_detail', // Pastikan alias ini ada di models/index.js
-          attributes: ['status', 'price'],
+          as: "subscription_detail", // Pastikan alias ini ada di models/index.js
+          attributes: ["status", "price"],
         },
         // 2. Join ke Item (Jika transaksinya beli Avatar/Item)
         {
           model: Item,
-          as: 'item_detail', // Pastikan alias ini ada di models/index.js
-          attributes: ['name', 'price'],
-        }
-      ]
+          as: "item_detail", // Pastikan alias ini ada di models/index.js
+          attributes: ["name", "price"],
+        },
+      ],
     });
-    
+
     // FORMATTING DATA
     // Kita harus menentukan 'item_name' berdasarkan kategori
-    const formattedData = transactions.map(t => {
+    const formattedData = transactions.map((t) => {
       const trx = t.get({ plain: true }); // Ubah ke plain object
-      
+
       let finalItemName = "Unknown Item";
 
       // LOGIKANYA:
-      if (trx.category === 'subscription' && trx.subscription_detail) {
+      if (trx.category === "subscription" && trx.subscription_detail) {
         finalItemName = `Paket ${trx.subscription_detail.status}`;
-      } 
-      else if (trx.category === 'item' && trx.item_detail) {
+      } else if (trx.category === "item" && trx.item_detail) {
         finalItemName = trx.item_detail.name;
       }
 
@@ -1424,13 +1470,11 @@ const getAllTransactions = async (req, res) => {
     });
 
     res.status(200).json({ data: formattedData });
-
   } catch (error) {
     console.error("Get Transactions Error:", error);
     res.status(500).json({ message: error.message });
   }
 };
-
 
 module.exports = {
   getLog,
@@ -1457,4 +1501,5 @@ module.exports = {
   deleteQuiz,
   updateUser,
   getAllTransactions,
+  getStudentsAnswersBySession,
 };

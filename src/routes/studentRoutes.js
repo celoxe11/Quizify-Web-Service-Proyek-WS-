@@ -16,13 +16,24 @@ const {
   getHistoryDetail,
   getTransactionHistory,
   buySubscription,
+  getQuizDetailByCode,
 } = require("../controllers/studentController");
 
 const { authenticate, isStudent } = require("../middleware/authMiddleware");
 const logActivity = require("../middleware/logActivity");
-const { getUserInventory, equipAvatar } = require("../controllers/avatarController");
+const {
+  getUserInventory,
+  equipAvatar,
+} = require("../controllers/avatarController");
 
 const router = express.Router();
+router.get(
+  "/quiz/code/:quiz_code",
+  authenticate,
+  isStudent,
+  logActivity("Student: Get Quiz Detail"),
+  getQuizDetailByCode
+);
 router.post(
   "/startquiz/:quiz_id",
   authenticate,
@@ -103,30 +114,23 @@ router.post(
 );
 
 router.get(
-  "/history", 
-  authenticate, 
-  isStudent, 
+  "/history",
+  authenticate,
+  isStudent,
   logActivity("Student: Get Student History"),
-  getStudentHistory);
+  getStudentHistory
+);
 
 router.get(
   "/history/:session_id", // Parameter session_id
   authenticate,
   isStudent,
   getHistoryDetail
-  );
+);
 
-router.get(
-  "/transactions", 
-  authenticate, 
-  isStudent, 
-  getTransactionHistory);
+router.get("/transactions", authenticate, isStudent, getTransactionHistory);
 
-router.post(
-  "/buy-subscription", 
-  authenticate, 
-  isStudent, 
-  buySubscription);
+router.post("/buy-subscription", authenticate, isStudent, buySubscription);
 
 router.get(
   "/inventory",
@@ -136,10 +140,6 @@ router.get(
 );
 
 // POST Equip Avatar (Ganti foto profil)
-router.post(
-  "/equip-avatar",
-  authenticate,
-  equipAvatar
-);
- 
+router.post("/equip-avatar", authenticate, equipAvatar);
+
 module.exports = router;

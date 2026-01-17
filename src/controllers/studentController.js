@@ -935,6 +935,42 @@ const buySubscription = async (req, res) => {
   }
 };
 
+const getQuizDetailByCode = async (req, res) => {
+  try {
+    const { quiz_code } = req.params;
+    const quiz = await Quiz.findOne({
+      where: { quiz_code },
+    });
+    if (!quiz) {
+      return res
+        .status(404)
+        .json({ message: "Kuis dengan kode tersebut tidak ditemukan" });
+    } 
+    const questions = await Question.findAll({
+      where: { quiz_id: quiz.id },
+      attributes: [
+        "id",
+        "type",
+        "difficulty",
+        "question_text",
+        "correct_answer",
+        "options",
+        "created_at",
+        "updated_at",
+      ],
+    });
+    res.status(200).json({
+      message: `Berhasil mendapatkan detail kuis`,
+      questions: questions,
+      quiz_id: quiz.id,
+    });
+  } catch (error) {
+    console.error("Error getQuizDetailByCode:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
 module.exports = {
   startQuiz,
   getQuestions,
@@ -951,4 +987,5 @@ module.exports = {
   getHistoryDetail,
   getTransactionHistory,
   buySubscription,
+  getQuizDetailByCode,
 };
