@@ -4,6 +4,7 @@ const {
   Question,
   SubmissionAnswer,
   User,
+  QuestionImage,
 } = require("../models");
 const { get } = require("../routes/studentRoutes");
 const fetchGeminiEvaluation = require("../utils/fetchGeminiEvaluation");
@@ -41,9 +42,18 @@ const startQuiz = async (req, res) => {
       console.log("Active session removed");
     }
 
-    // buat ID
-    const jumlahSession = await QuizSession.count();
-    const idBaruSession = `S${padNumber(jumlahSession + 1)}`;
+    // buat ID - cari ID terakhir untuk menghindari duplicate
+    const lastSession = await QuizSession.findOne({
+      order: [["id", "DESC"]],
+      attributes: ["id"],
+    });
+
+    let newIdNumber = 1;
+    if (lastSession) {
+      const lastIdNumber = parseInt(lastSession.id.replace("S", ""));
+      newIdNumber = lastIdNumber + 1;
+    }
+    const idBaruSession = `S${padNumber(newIdNumber)}`;
 
     const session = await QuizSession.create({
       id: idBaruSession,
@@ -89,9 +99,19 @@ const startQuizByCode = async (req, res) => {
       await activeSession.destroy();
       console.log("Active session removed");
     }
-    // buat ID
-    const jumlahSession = await QuizSession.count();
-    const idBaruSession = `S${padNumber(jumlahSession + 1)}`;
+    // buat ID - cari ID terakhir untuk menghindari duplicate
+    const lastSession = await QuizSession.findOne({
+      order: [["id", "DESC"]],
+      attributes: ["id"],
+    });
+
+    let newIdNumber = 1;
+    if (lastSession) {
+      const lastIdNumber = parseInt(lastSession.id.replace("S", ""));
+      newIdNumber = lastIdNumber + 1;
+    }
+    const idBaruSession = `S${padNumber(newIdNumber)}`;
+
     const session = await QuizSession.create({
       id: idBaruSession,
       user_id,
@@ -107,7 +127,12 @@ const startQuizByCode = async (req, res) => {
       quiz_id: quiz.id,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Error in startQuizByCode:", error);
+    res.status(500).json({
+      message: error.message,
+      error: error.name,
+      details: error.errors ? error.errors.map((e) => e.message) : undefined,
+    });
   }
 };
 
@@ -141,6 +166,13 @@ const getQuestions = async (req, res) => {
         "correct_answer",
         "options",
       ],
+      include: [
+        {
+          model: QuestionImage,
+          attributes: ["image_url"],
+          required: false,
+        },
+      ],
     });
 
     const formattedQuestions = questions.map((question) => {
@@ -155,6 +187,12 @@ const getQuestions = async (req, res) => {
       // Shuffle options
       const shuffledOptions = [...options].sort(() => Math.random() - 0.5);
 
+      // Get question image (hasMany returns array, so take first one)
+      const questionImage =
+        question.QuestionImages && question.QuestionImages.length > 0
+          ? question.QuestionImages[0].image_url
+          : null;
+
       // Return formatted question object
       return {
         id: question.id,
@@ -162,6 +200,7 @@ const getQuestions = async (req, res) => {
         type: question.type,
         difficulty: question.difficulty,
         possible_answers: shuffledOptions,
+        question_image: questionImage,
       };
     });
 
@@ -326,7 +365,7 @@ const updateAnswer = async (req, res) => {
           quiz_session_id: quiz_session_id,
           question_id: question_id,
         },
-      }
+      },
     );
 
     return res.status(200).json({
@@ -383,7 +422,7 @@ const submitQuiz = async (req, res) => {
       },
       {
         where: { id: quiz_session_id },
-      }
+      },
     );
 
     return res.status(200).json({
@@ -487,7 +526,7 @@ const getQuizDetail = async (req, res) => {
         q.image_url = formatImageUrl(req, image?.image_url);
 
         return q;
-      })
+      }),
     );
 
     res.status(200).json({
@@ -505,9 +544,8 @@ const getGeminiEvaluation = async (req, res) => {
     const { submission_answer_id, language, detailed_feedback, question_type } =
       req.body;
 
-    const submissionAnswer = await SubmissionAnswer.findByPk(
-      submission_answer_id
-    );
+    const submissionAnswer =
+      await SubmissionAnswer.findByPk(submission_answer_id);
 
     if (!submissionAnswer) {
       return res.status(404).json({ message: "Jawaban tidak ditemukan" });
@@ -529,7 +567,7 @@ const getGeminiEvaluation = async (req, res) => {
       question.question_text,
       question.correct_answer,
       submissionAnswer.selected_answer,
-      options
+      options,
     );
 
     return res.status(200).json({
@@ -740,7 +778,7 @@ const getStudentHistory = async (req, res) => {
           incorrect: incorrectCount, // Jumlah Salah
           finished_at: s.ended_at, // Tanggal Selesai
         };
-      })
+      }),
     );
 
     // 3. Kirim response dengan key 'data'
@@ -857,29 +895,29 @@ const getTransactionHistory = async (req, res) => {
       where: { user_id: userId },
       include: [
         // Include Subscription
-        { 
-          model: Subscription, 
-          as: 'subscription_detail', 
-          attributes: ['status'] 
+        {
+          model: Subscription,
+          as: "subscription_detail",
+          attributes: ["status"],
         },
         // Include Item (Katalog Barang) - Pastikan relasi sudah dibuat di index.js
         {
-           model: Item,
-           as: 'item_detail', // Anda perlu tambah relasi ini di index.js
-           attributes: ['name']
-        }
+          model: Item,
+          as: "item_detail", // Anda perlu tambah relasi ini di index.js
+          attributes: ["name"],
+        },
       ],
-      order: [['created_at', 'DESC']]
+      order: [["created_at", "DESC"]],
     });
 
-    const formatted = transactions.map(t => {
+    const formatted = transactions.map((t) => {
       let itemName = "Unknown";
-      
+
       // Logic penentuan nama
-      if (t.category === 'subscription' && t.subscription_detail) {
-         itemName = `Paket ${t.subscription_detail.status}`;
-      } else if (t.category === 'item' && t.item_detail) {
-         itemName = t.item_detail.name; // Nama Avatar/Item
+      if (t.category === "subscription" && t.subscription_detail) {
+        itemName = `Paket ${t.subscription_detail.status}`;
+      } else if (t.category === "item" && t.item_detail) {
+        itemName = t.item_detail.name; // Nama Avatar/Item
       }
 
       return {
@@ -890,7 +928,7 @@ const getTransactionHistory = async (req, res) => {
         amount: parseFloat(t.amount),
         status: t.status,
         payment_method: t.payment_method,
-        created_at: t.created_at
+        created_at: t.created_at,
       };
     });
 
@@ -945,7 +983,7 @@ const getQuizDetailByCode = async (req, res) => {
       return res
         .status(404)
         .json({ message: "Kuis dengan kode tersebut tidak ditemukan" });
-    } 
+    }
     const questions = await Question.findAll({
       where: { quiz_id: quiz.id },
       attributes: [
@@ -969,7 +1007,6 @@ const getQuizDetailByCode = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
 
 module.exports = {
   startQuiz,

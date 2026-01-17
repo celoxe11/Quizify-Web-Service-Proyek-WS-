@@ -32,14 +32,14 @@ router.get(
   authenticate,
   isStudent,
   logActivity("Student: Get Quiz Detail"),
-  getQuizDetailByCode
+  getQuizDetailByCode,
 );
 router.post(
   "/startquiz/:quiz_id",
   authenticate,
   isStudent,
   logActivity("Student: Start quiz"),
-  startQuiz
+  startQuiz,
 );
 
 router.get(
@@ -47,49 +47,49 @@ router.get(
   authenticate,
   isStudent,
   logActivity("Student: Get Questions"),
-  getQuestions
+  getQuestions,
 );
 router.post(
   "/answer",
   authenticate,
   isStudent,
   logActivity("Student: Answer question"),
-  answerQuestion
+  answerQuestion,
 );
 router.put(
   "/answer",
   authenticate,
   isStudent,
   logActivity("Student: Update answer"),
-  updateAnswer
+  updateAnswer,
 );
 router.get(
   "/quizzes",
   authenticate,
   isStudent,
   logActivity("Student: Get All Quizzes"),
-  getAllQuizzes
+  getAllQuizzes,
 );
 router.get(
   "/quiz/:quiz_id",
   authenticate,
   isStudent,
   logActivity("Student: Get Quiz Detail"),
-  getQuizDetail
+  getQuizDetail,
 );
 router.post(
   "/submitquiz",
   authenticate,
   isStudent,
   logActivity("Student: Submit quiz"),
-  submitQuiz
+  submitQuiz,
 );
 router.post(
   "/question/gemini-evaluation",
   // authenticate,
   // isStudent,
   // logActivity("Student: Ask Gemini for Evaluation"),
-  getGeminiEvaluation
+  getGeminiEvaluation,
 );
 // router.get(
 //   "/history",
@@ -103,14 +103,14 @@ router.get(
   authenticate,
   isStudent,
   logActivity("Student: Review Quiz"),
-  getQuizReview
+  getQuizReview,
 );
 router.post(
   "/startquizbycode/:quiz_code",
   authenticate,
   isStudent,
   logActivity("Student: Start quiz by code"),
-  startQuizByCode
+  startQuizByCode,
 );
 
 router.get(
@@ -118,14 +118,14 @@ router.get(
   authenticate,
   isStudent,
   logActivity("Student: Get Student History"),
-  getStudentHistory
+  getStudentHistory,
 );
 
 router.get(
   "/history/:session_id", // Parameter session_id
   authenticate,
   isStudent,
-  getHistoryDetail
+  getHistoryDetail,
 );
 
 router.get("/transactions", authenticate, isStudent, getTransactionHistory);
@@ -136,7 +136,7 @@ router.get(
   "/inventory",
   authenticate,
   // isStudent, // Boleh diaktifkan jika khusus student
-  getUserInventory
+  getUserInventory,
 );
 
 // POST Equip Avatar (Ganti foto profil)
