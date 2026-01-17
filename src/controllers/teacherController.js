@@ -506,13 +506,9 @@ const getQuizDetail = async (req, res) => {
 
     const quiz_id = value.id;
 
-    // Check quiz ownership
-    const ownershipCheck = await checkQuizOwnership(Quiz, quiz_id, req.user.id);
-    if (ownershipCheck.error) {
-      return res
-        .status(ownershipCheck.code)
-        .json({ message: ownershipCheck.error });
-    }
+    const quiz = await Quiz.findOne({
+      where: { id: quiz_id },
+    });
 
     // Get questions for this quiz
     const questions = await Question.findAll({
@@ -537,17 +533,17 @@ const getQuizDetail = async (req, res) => {
     }
 
     res.status(200).json({
-      message: `Berhasil mendapatkan detail kuis ${ownershipCheck.quiz.title}`,
+      message: `Berhasil mendapatkan detail kuis ${quiz_id}`,
       quiz: {
-        id: ownershipCheck.quiz.id,
-        title: ownershipCheck.quiz.title,
-        description: ownershipCheck.quiz.description,
-        quiz_code: ownershipCheck.quiz.quiz_code,
-        status: ownershipCheck.quiz.status,
-        category: ownershipCheck.quiz.category,
-        created_by: ownershipCheck.quiz.created_by,
-        created_at: ownershipCheck.quiz.created_at,
-        updated_at: ownershipCheck.quiz.updated_at,
+        id: quiz_id,
+        title: quiz.title,
+        description: quiz.description,
+        quiz_code: quiz.quiz_code,
+        status: quiz.status,
+        category: quiz.category,
+        created_by: quiz.created_by,
+        created_at: quiz.created_at,
+        updated_at: quiz.updated_at,
         questions,
       },
     });
