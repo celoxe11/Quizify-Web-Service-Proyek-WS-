@@ -1,4 +1,4 @@
-const { User } = require("../models");
+const { User, Avatar } = require("../models");
 const admin = require("firebase-admin");
 const { sequelize } = require("../models");
 
@@ -123,39 +123,50 @@ const register = async (req, res) => {
 // Bisa buat ambil data profile setelah login
 const me = async (req, res) => {
   try {
-    // The firebase_uid comes from the route parameter or the verified token (req.user.uid)
-    // It is safer to use req.user.uid from the middleware if available, but params work too.
     const firebaseUid = req.user.uid;
 
-    const user = await User.findOne({ where: { firebase_uid: firebaseUid } });
+    const user = await User.findOne({
+      where: { firebase_uid: firebaseUid },
+      include: [
+        {
+          model: Avatar,
+          as: 'activeAvatar',
+          attributes: ['image_url'],
+        },
+      ],
+    });
 
     if (!user) {
-      return res
-        .status(404)
-        .json({ message: "User not found in database. Please register." });
+      return res.status(404).json({
+        message: "User not found in database. Please register.",
+      });
     }
 
     if (!user.is_active) {
       return res.status(403).json({ message: "Account is inactive" });
     }
 
-    const currentRoleClaim = req.user.role;
-    if (currentRoleClaim !== user.role) {
+    if (req.user.role !== user.role) {
       await admin.auth().setCustomUserClaims(firebaseUid, {
         role: user.role,
       });
-      // Note: The Flutter client must refresh its token to pick up this change.
     }
 
-    res.json(user);
+    const userData = user.toJSON();
+    userData.current_avatar_url = user.activeAvatar?.image_url ?? null;
+
+    delete userData.activeAvatar;
+
+    return res.json(userData);
   } catch (error) {
     console.error("Login Fetch Error:", error);
-    res
-      .status(500)
-      .json({ message: `Internal server error - ${error.message}` });
+    return res.status(500).json({
+      message: `Internal server error - ${error.message}`,
+    });
   }
 };
 
+ 
 // 3. GOOGLE SIGN-IN: Handles both new Google users and returning Google users
 const googleSignIn = async (req, res) => {
   try {

@@ -35,6 +35,7 @@ const logActivity = require("../middleware/logActivity");
 const { authenticate, isAdmin } = require("../middleware/authMiddleware");
 const { saveQuizWithQuestions } = require("../controllers/teacherController");
 const { getAllAvatars, createAvatar, updateAvatar, deleteAvatar } = require("../controllers/avatarController");
+const uploadAvatar = require("../middleware/uploadAvatar");
 
 const router = express.Router();
 
@@ -234,6 +235,7 @@ router.post(
   "/avatars", 
   authenticate, 
   isAdmin, 
+  uploadAvatar.single('avatar_file'),
   createAvatar
 );
 router.put(
