@@ -28,7 +28,8 @@ const {
   deleteQuiz,
   updateUser,
   updateTierList,
-  getAllTransactions
+  getAllTransactions,
+  getStudentsAnswersBySession
 } = require("../controllers/adminController");
 
 const logActivity = require("../middleware/logActivity");
@@ -249,6 +250,13 @@ router.patch(
   authenticate, 
   isAdmin, 
   deleteAvatar
+);
+router.get(
+  "/quiz/answers/session/:session_id/:student_id",
+  authenticate,
+  isAdmin,
+  logActivity("Admin: Get a Student's Answers"),
+  getStudentsAnswersBySession
 );
 
 module.exports = router;

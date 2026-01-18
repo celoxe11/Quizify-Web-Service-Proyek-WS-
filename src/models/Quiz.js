@@ -19,10 +19,6 @@ const Quiz = sequelize.define(
       type: DataTypes.STRING(20),
       unique: true,
     },
-    status:{
-      type: DataTypes.ENUM('private', 'public'),
-      defaultValue: 'private',
-    },
     category: {
       type: DataTypes.STRING(100),
     },
@@ -39,7 +35,7 @@ const Quiz = sequelize.define(
     timestamps: true,
     createdAt: "created_at",
     updatedAt: "updated_at",
-  }
+  },
 );
 
 module.exports = Quiz;
