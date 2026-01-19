@@ -40,29 +40,28 @@ const createAvatar = async (req, res) => {
   try {
     let imageUrl = value.image_url || null;
 
-    // ✅ PRIORITAS: FILE UPLOAD
     if (req.file) {
-      imageUrl = `${req.protocol}://${req.get("host")}/uploads/avatars/${req.file.filename}`;
+    imageUrl = `${req.protocol}://${req.get("host")}/uploads/avatars/${req.file.filename}`;
     }
 
     if (!imageUrl) {
-      return res.status(400).json({
+    return res.status(400).json({
         message: "image_url atau file avatar wajib diisi",
-      });
+    });
     }
 
-    // 1. Create Avatar
     const newAvatar = await Avatar.create(
-      {
+    {
         name: value.name,
         description: value.description,
-        image_url: imageUrl,
+        image_url: imageUrl, // ← PAKAI INI
         price: value.price,
         rarity: value.rarity,
         is_active: true,
-      },
-      { transaction }
+    },
+    { transaction }
     );
+
 
     // 2. Create Shop Item
     await Item.create(
@@ -86,10 +85,10 @@ const createAvatar = async (req, res) => {
     });
   } catch (err) {
     await transaction.rollback();
-    console.error("CREATE AVATAR ERROR:", err);
-
+    console.error("CREATE AVATAR ERROR:", err.message, err);
     return res.status(500).json({
-      message: "Gagal membuat avatar",
+        message: "Gagal membuat avatar",
+        detail: err.message
     });
   }
 };
