@@ -18,7 +18,7 @@ async function seedDatabase() {
   try {
     // === 1. DROP & CREATE DATABASE ===
     await connection.query(
-      `DROP DATABASE IF EXISTS quizify; CREATE DATABASE quizify; USE quizify;`
+      `DROP DATABASE IF EXISTS quizify; CREATE DATABASE quizify; USE quizify;`,
     );
 
     console.log("Database reset successfully.");
@@ -86,6 +86,7 @@ async function seedDatabase() {
         subscription_id INT NOT NULL,
         current_avatar_id INT DEFAULT NULL, -- BARU: Avatar yang sedang dipakai
         is_active TINYINT(1) DEFAULT '1',
+        points INT DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY (id),
@@ -206,7 +207,7 @@ async function seedDatabase() {
     await connection.query(
       `INSERT INTO subscription (status, price) VALUES 
        ('Free', 0), 
-       ('Premium', 50000)`
+       ('Premium', 50000)`,
     );
 
     // B. Avatars
@@ -217,7 +218,7 @@ async function seedDatabase() {
        ('Basic Student', 'Default avatar for students', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix', 0, 'common'),
        ('Cool Cat', 'A cool cat avatar for cool students', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Pepper', 15000, 'rare'),
        ('Robo Teacher', 'Beep boop, I am a robot', 'https://api.dicebear.com/7.x/bottts/svg?seed=Tech', 25000, 'epic'),
-       ('Golden Graduate', 'Legendary avatar for top scorers', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Goldy', 100000, 'legendary')`
+       ('Golden Graduate', 'Legendary avatar for top scorers', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Goldy', 100000, 'legendary')`,
     );
 
     // C. Items (Katalog Toko)
@@ -231,7 +232,7 @@ async function seedDatabase() {
         -- Item Avatars (Reference ID sesuai urutan insert avatar di atas)
         ('Cool Cat Avatar', 'Unlock the Cool Cat look', 15000, 'avatar', 2, 'https://api.dicebear.com/7.x/avataaars/svg?seed=Pepper'),
         ('Robo Teacher Avatar', 'Unlock the Robot look', 25000, 'avatar', 3, 'https://api.dicebear.com/7.x/bottts/svg?seed=Tech'),
-        ('Golden Graduate Avatar', 'Unlock the Legendary look', 100000, 'avatar', 4, 'https://api.dicebear.com/7.x/avataaars/svg?seed=Goldy')`
+        ('Golden Graduate Avatar', 'Unlock the Legendary look', 100000, 'avatar', 4, 'https://api.dicebear.com/7.x/avataaars/svg?seed=Goldy')`,
     );
 
     // === 4. SYNC USERS FROM FIREBASE ===
@@ -241,15 +242,15 @@ async function seedDatabase() {
 
     if (firebaseUsers.length > 0) {
       console.log(
-        `   Found ${firebaseUsers.length} users in Firebase. Syncing...`
+        `   Found ${firebaseUsers.length} users in Firebase. Syncing...`,
       );
 
       const userValues = [];
       const [teacherRows] = await connection.query(
-        "SELECT MAX(CAST(SUBSTRING(id,3) AS UNSIGNED)) AS maxNum FROM user WHERE role = 'teacher'"
+        "SELECT MAX(CAST(SUBSTRING(id,3) AS UNSIGNED)) AS maxNum FROM user WHERE role = 'teacher'",
       );
       const [studentRows] = await connection.query(
-        "SELECT MAX(CAST(SUBSTRING(id,3) AS UNSIGNED)) AS maxNum FROM user WHERE role = 'student'"
+        "SELECT MAX(CAST(SUBSTRING(id,3) AS UNSIGNED)) AS maxNum FROM user WHERE role = 'student'",
       );
 
       let teacherCount = (teacherRows[0]?.maxNum || 0) + 1;
@@ -294,10 +295,11 @@ async function seedDatabase() {
           role,
           1,
           defaultAvatarId,
+          0, // points
         ]);
       }
 
-      const insertQuery = `INSERT INTO user (id, name, username, email, firebase_uid, role, subscription_id, current_avatar_id) VALUES ?`;
+      const insertQuery = `INSERT INTO user (id, name, username, email, firebase_uid, role, subscription_id, current_avatar_id, points) VALUES ?`;
       await connection.query(insertQuery, [userValues]);
       console.log("   Users synced successfully!");
     }
@@ -306,13 +308,13 @@ async function seedDatabase() {
     if (firebaseUsers.length === 0) {
       console.log("   Adding dummy users...");
       await connection.query(`
-          INSERT INTO user (id, name, username, email, firebase_uid, role, subscription_id, current_avatar_id) VALUES
-          ('AD001', 'Administrator', 'admin', 'admin@quizify.com', NULL, 'admin', 1, NULL),
-          ('TE001', 'John Teacher', 'john_teacher', 'john@teacher.com', NULL, 'teacher', 2, 3), -- Pakai Robo Teacher
-          ('TE002', 'Jane Educator', 'jane_educator', 'jane@teacher.com', NULL, 'teacher', 1, 1),
-          ('ST001', 'Alice Student', 'alice_student', 'alice@student.com', NULL, 'student', 1, 2), -- Pakai Cool Cat
-          ('ST002', 'Bob Learner', 'bob_learner', 'bob@student.com', NULL, 'student', 1, 1),
-          ('ST003', 'Charlie Pupil', 'charlie_pupil', 'charlie@student.com', NULL, 'student', 2, 1)
+          INSERT INTO user (id, name, username, email, firebase_uid, role, subscription_id, current_avatar_id, points) VALUES
+          ('AD001', 'Administrator', 'admin', 'admin@quizify.com', NULL, 'admin', 1, NULL, 0),
+          ('TE001', 'John Teacher', 'john_teacher', 'john@teacher.com', NULL, 'teacher', 2, 3, 500), -- Pakai Robo Teacher
+          ('TE002', 'Jane Educator', 'jane_educator', 'jane@teacher.com', NULL, 'teacher', 1, 1, 100),
+          ('ST001', 'Alice Student', 'alice_student', 'alice@student.com', NULL, 'student', 1, 2, 250), -- Pakai Cool Cat
+          ('ST002', 'Bob Learner', 'bob_learner', 'bob@student.com', NULL, 'student', 1, 1, 0),
+          ('ST003', 'Charlie Pupil', 'charlie_pupil', 'charlie@student.com', NULL, 'student', 2, 1, 1000)
         `);
     }
 

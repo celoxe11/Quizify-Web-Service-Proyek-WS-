@@ -425,9 +425,38 @@ const submitQuiz = async (req, res) => {
       },
     );
 
+    // update point student
+    const studentEarnedPoints = correctAnswers * 1000;
+    const student = await User.findByPk(quizSession.user_id);
+    if (student) {
+      await User.update(
+        {
+          points: student.points + studentEarnedPoints,
+        },
+        {
+          where: { id: quizSession.user_id },
+        },
+      );
+    }
+
+    // update point teacher
+    const teacherEarnedPoints = 8000;
+    const teacher = await User.findByPk(quiz.created_by);
+    if (teacher) {
+      await User.update(
+        {
+          points: teacher.points + teacherEarnedPoints,
+        },
+        {
+          where: { id: quiz.created_by },
+        },
+      );
+    }
+
     return res.status(200).json({
       message: `Berhasil menyelesaikan quiz ${quiz.title}`,
       score_akhir: score,
+      points: studentEarnedPoints,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
