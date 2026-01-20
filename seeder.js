@@ -273,6 +273,7 @@ async function seedDatabase() {
             "admin",
             1,
             null,
+            0, // points
           ]);
           continue;
         }
@@ -339,15 +340,29 @@ async function seedDatabase() {
     // ST001 beli Avatar ID 2
     // TE001 beli Avatar ID 3
     // Semua user default punya Avatar ID 1 (Basic)
-    await connection.query(`
-      INSERT INTO useravatar (user_id, avatar_id) VALUES
-      -- Default Avatar for Everyone
-      ('TE001', 1), ('TE002', 1), ('ST001', 1), ('ST002', 1), ('ST003', 1),
-      
-      -- Purchased Avatars
-      ('ST001', 2), -- ST001 punya Cool Cat
-      ('TE001', 3)  -- TE001 punya Robo Teacher
-    `);
+
+    // First, get all user IDs to give them default avatar
+    const [allUsers] = await connection.query(
+      `SELECT id FROM user WHERE id != 'AD001'`,
+    );
+
+    // Build inventory values for all users (default avatar ID 1)
+    const inventoryValues = allUsers.map((user) => [user.id, 1]);
+
+    // Add purchased avatars for dummy users
+    inventoryValues.push(["ST001", 2]); // ST001 punya Cool Cat
+    inventoryValues.push(["TE001", 3]); // TE001 punya Robo Teacher
+
+    // Insert all inventory records
+    if (inventoryValues.length > 0) {
+      await connection.query(
+        `INSERT INTO useravatar (user_id, avatar_id) VALUES ?`,
+        [inventoryValues],
+      );
+      console.log(
+        `   Added default avatar to ${allUsers.length} users' inventory`,
+      );
+    }
 
     // === 7. SEED QUIZZES & QUESTIONS (Tetap Sama) ===
     console.log("   Adding dummy quizzes...");

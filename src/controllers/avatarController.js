@@ -1,4 +1,4 @@
-const { Avatar, Item, User } = require("../models");
+const { Avatar, Item, User, UserAvatar } = require("../models");
 const sequelize = require("../database/connection");
 const Joi = require("joi");
 const { Op } = require("sequelize");
@@ -41,27 +41,26 @@ const createAvatar = async (req, res) => {
     let imageUrl = value.image_url || null;
 
     if (req.file) {
-    imageUrl = `${req.protocol}://${req.get("host")}/uploads/avatars/${req.file.filename}`;
+      imageUrl = `${req.protocol}://${req.get("host")}/uploads/avatars/${req.file.filename}`;
     }
 
     if (!imageUrl) {
-    return res.status(400).json({
+      return res.status(400).json({
         message: "image_url atau file avatar wajib diisi",
-    });
+      });
     }
 
     const newAvatar = await Avatar.create(
-    {
+      {
         name: value.name,
         description: value.description,
         image_url: imageUrl, // ← PAKAI INI
         price: value.price,
         rarity: value.rarity,
         is_active: true,
-    },
-    { transaction }
+      },
+      { transaction },
     );
-
 
     // 2. Create Shop Item
     await Item.create(
@@ -74,7 +73,7 @@ const createAvatar = async (req, res) => {
         image_url: imageUrl,
         is_active: true,
       },
-      { transaction }
+      { transaction },
     );
 
     await transaction.commit();
@@ -87,12 +86,11 @@ const createAvatar = async (req, res) => {
     await transaction.rollback();
     console.error("CREATE AVATAR ERROR:", err.message, err);
     return res.status(500).json({
-        message: "Gagal membuat avatar",
-        detail: err.message
+      message: "Gagal membuat avatar",
+      detail: err.message,
     });
   }
 };
-
 
 // 3. UPDATE AVATAR
 const updateAvatar = async (req, res) => {
@@ -144,24 +142,19 @@ const getUserInventory = async (req, res) => {
     // Ambil ID user yang sedang login dari Token
     const userId = req.user.id || req.user.uid;
 
-    console.log("Fetching inventory for:", userId);
-
     const user = await User.findOne({
       where: {
         // [FIX] Cari user berdasarkan ID (Internal) ATAU Firebase UID
-        [Op.or]: [
-          { id: userId },
-          { firebase_uid: userId }
-        ]
+        [Op.or]: [{ id: userId }, { firebase_uid: userId }],
       },
-      attributes: ["id", "name", "current_avatar_id"], 
+      attributes: ["id", "name", "current_avatar_id"],
       include: [
         {
           model: Avatar,
           as: "inventory", // Pastikan alias ini sesuai dengan models/index.js
           attributes: ["id", "name", "image_url", "rarity", "price"],
           through: {
-            attributes: ["purchased_at"], 
+            attributes: ["purchased_at"],
           },
         },
       ],
@@ -180,7 +173,7 @@ const getUserInventory = async (req, res) => {
         name: av.name,
         image_url: av.image_url,
         rarity: av.rarity,
-        price: parseFloat(av.price), 
+        price: parseFloat(av.price),
         purchased_at: av.UserAvatar.purchased_at,
         // Cek apakah avatar ini sedang dipakai?
         is_equipped: user.current_avatar_id === av.id,
@@ -195,7 +188,7 @@ const getUserInventory = async (req, res) => {
     console.error("Get Inventory Error:", error);
     return res.status(500).json({ message: error.message });
   }
-}; 
+};
 
 // [BARU] EQUIP AVATAR (Ganti Avatar Aktif)
 const equipAvatar = async (req, res) => {
@@ -206,10 +199,7 @@ const equipAvatar = async (req, res) => {
     const user = await User.findOne({
       where: {
         // [FIX] Cari di kolom ID (Internal) ATAU firebase_uid
-        [Op.or]: [
-          { id: userId },
-          { firebase_uid: userId }
-        ]
+        [Op.or]: [{ id: userId }, { firebase_uid: userId }],
       },
       include: [{ model: Avatar, as: "inventory" }],
     });
@@ -236,6 +226,44 @@ const equipAvatar = async (req, res) => {
   }
 };
 
+const buyAvatar = async (req, res) => {
+  try {
+    const { avatar_id } = req.body;
+    const userId = req.user.id || req.user.uid;
+
+    const avatar = await Avatar.findByPk(avatar_id);
+    if (!avatar) return res.status(404).json({ message: "Avatar not found" });
+
+    if (avatar.is_active === 0) {
+      return res.status(403).json({ message: "Avatar is not active" });
+    }
+
+    const user = await User.findByPk(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (user.points < avatar.price) {
+      return res.status(403).json({ message: "Insufficient points" });
+    }
+
+    user.points -= parseInt(avatar.price);
+    
+    await user.save();
+
+    await UserAvatar.create({
+      user_id: userId,
+      avatar_id: avatar_id,
+      purchased_at: new Date(),
+    });
+
+    return res.status(200).json({
+      message: "Avatar bought successfully",
+      current_avatar_id: avatar_id,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   getAllAvatars,
   createAvatar,
@@ -243,4 +271,5 @@ module.exports = {
   deleteAvatar,
   getUserInventory,
   equipAvatar,
+  buyAvatar,
 };

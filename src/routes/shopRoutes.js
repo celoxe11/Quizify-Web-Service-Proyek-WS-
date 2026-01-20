@@ -1,7 +1,12 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const { authenticate } = require('../middleware/authMiddleware');
-const { getAllAvatars, getUserInventory, equipAvatar } = require('../controllers/avatarController');
+const { authenticate } = require("../middleware/authMiddleware");
+const {
+  getAllAvatars,
+  getUserInventory,
+  buyAvatar,
+  equipAvatar,
+} = require("../controllers/avatarController");
 
 // Endpoint ini bisa diakses siapa saja yang login (Student/Teacher)
 // 1. GET Semua Avatar (Katalog Toko)
@@ -11,8 +16,7 @@ router.get("/avatars", authenticate, getAllAvatars);
 router.get("/inventory", authenticate, getUserInventory);
 
 // 3. POST Beli Avatar
-// (Anda perlu buat fungsi buyAvatar di controller nanti)
-// router.post("/buy", authenticate, avatarController.buyAvatar);
+router.post("/buy", authenticate, buyAvatar);
 
 // 4. POST Equip Avatar
 router.post("/equip", authenticate, equipAvatar);
