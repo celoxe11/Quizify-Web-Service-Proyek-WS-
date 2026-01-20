@@ -29,6 +29,7 @@ app.use(cors());
 
 const { onRequest } = require("firebase-functions/v2/https");
 
+app.use("/uploads", express.static("uploads"));
 app.use("/api", authRoutes);
 app.use("/api/student", studentRoutes);
 app.use("/api/teacher", teacherRoutes);

@@ -1,6 +1,7 @@
 const { Avatar, Item, User } = require("../models");
 const sequelize = require("../database/connection");
 const Joi = require("joi");
+const { Op } = require("sequelize");
 
 // 1. GET ALL AVATARS (Termasuk yang soft-deleted agar admin bisa restore)
 const getAllAvatars = async (req, res) => {
@@ -19,7 +20,7 @@ const createAvatar = async (req, res) => {
   const schema = Joi.object({
     name: Joi.string().min(3).max(100).required(),
     description: Joi.string().allow(null, "").optional(),
-    image_url: Joi.string().uri().required(), // MODE MANUAL (sementara)
+    image_url: Joi.string().uri().optional(), // OPTIONAL
     price: Joi.number().min(0).required(),
     rarity: Joi.string()
       .valid("common", "rare", "epic", "legendary")
@@ -37,20 +38,32 @@ const createAvatar = async (req, res) => {
   const transaction = await sequelize.transaction();
 
   try {
-    // 1. Create Avatar
+    let imageUrl = value.image_url || null;
+
+    if (req.file) {
+    imageUrl = `${req.protocol}://${req.get("host")}/uploads/avatars/${req.file.filename}`;
+    }
+
+    if (!imageUrl) {
+    return res.status(400).json({
+        message: "image_url atau file avatar wajib diisi",
+    });
+    }
+
     const newAvatar = await Avatar.create(
-      {
+    {
         name: value.name,
         description: value.description,
-        image_url: value.image_url,
+        image_url: imageUrl, // ← PAKAI INI
         price: value.price,
         rarity: value.rarity,
         is_active: true,
-      },
-      { transaction }
+    },
+    { transaction }
     );
 
-    // 2. Create Shop Item (Catalog)
+
+    // 2. Create Shop Item
     await Item.create(
       {
         name: `${value.name} Avatar`,
@@ -58,7 +71,7 @@ const createAvatar = async (req, res) => {
         price: value.price,
         type: "avatar",
         reference_id: newAvatar.id,
-        image_url: value.image_url,
+        image_url: imageUrl,
         is_active: true,
       },
       { transaction }
@@ -72,14 +85,14 @@ const createAvatar = async (req, res) => {
     });
   } catch (err) {
     await transaction.rollback();
-
-    console.error("CREATE AVATAR ERROR:", err);
-
+    console.error("CREATE AVATAR ERROR:", err.message, err);
     return res.status(500).json({
-      message: "Gagal membuat avatar",
+        message: "Gagal membuat avatar",
+        detail: err.message
     });
   }
 };
+
 
 // 3. UPDATE AVATAR
 const updateAvatar = async (req, res) => {
@@ -134,26 +147,32 @@ const getUserInventory = async (req, res) => {
     console.log("Fetching inventory for:", userId);
 
     const user = await User.findOne({
-      where: { id: userId },
-      attributes: ["id", "name", "current_avatar_id"], // Kita butuh current_avatar_id untuk tahu mana yg dipakai
+      where: {
+        // [FIX] Cari user berdasarkan ID (Internal) ATAU Firebase UID
+        [Op.or]: [
+          { id: userId },
+          { firebase_uid: userId }
+        ]
+      },
+      attributes: ["id", "name", "current_avatar_id"], 
       include: [
         {
           model: Avatar,
-          as: "inventory", // <--- PENTING: Sesuai alias di models/index.js
+          as: "inventory", // Pastikan alias ini sesuai dengan models/index.js
           attributes: ["id", "name", "image_url", "rarity", "price"],
           through: {
-            attributes: ["purchased_at"], // Ambil data kapan belinya dari tabel pivot
+            attributes: ["purchased_at"], 
           },
         },
       ],
     });
 
     if (!user) {
+      console.log("User not found in DB for ID:", userId);
       return res.status(404).json({ message: "User not found" });
     }
 
     // Format data agar Frontend mudah membacanya
-    // Kita tambahkan flag 'is_equipped'
     const formattedInventory = user.inventory.map((avatar) => {
       const av = avatar.toJSON();
       return {
@@ -161,9 +180,8 @@ const getUserInventory = async (req, res) => {
         name: av.name,
         image_url: av.image_url,
         rarity: av.rarity,
-        price: parseFloat(av.price), // Harga beli (info saja)
+        price: parseFloat(av.price), 
         purchased_at: av.UserAvatar.purchased_at,
-
         // Cek apakah avatar ini sedang dipakai?
         is_equipped: user.current_avatar_id === av.id,
       };
@@ -177,7 +195,7 @@ const getUserInventory = async (req, res) => {
     console.error("Get Inventory Error:", error);
     return res.status(500).json({ message: error.message });
   }
-};
+}; 
 
 // [BARU] EQUIP AVATAR (Ganti Avatar Aktif)
 const equipAvatar = async (req, res) => {
@@ -186,7 +204,13 @@ const equipAvatar = async (req, res) => {
     const { avatar_id } = req.body;
 
     const user = await User.findOne({
-      where: { id: userId },
+      where: {
+        // [FIX] Cari di kolom ID (Internal) ATAU firebase_uid
+        [Op.or]: [
+          { id: userId },
+          { firebase_uid: userId }
+        ]
+      },
       include: [{ model: Avatar, as: "inventory" }],
     });
 
