@@ -12,7 +12,7 @@ const {
   SubmissionAnswer,
   QuizSession,
   Transaction,
-  Item,
+  Avatar,
 } = require("../models/index");
 
 const { formatImageUrl } = require("../utils/helpers");
@@ -311,7 +311,7 @@ const createQuestion = async (req, res) => {
   try {
     // Parse incorrect_answers if it's a string
     req.body.incorrect_answers = parseIncorrectAnswers(
-      req.body.incorrect_answers
+      req.body.incorrect_answers,
     );
 
     // Validate inputs
@@ -395,7 +395,7 @@ const updateQuestion = async (req, res) => {
   try {
     // Parse incorrect_answers if it's a string
     req.body.incorrect_answers = parseIncorrectAnswers(
-      req.body.incorrect_answers
+      req.body.incorrect_answers,
     );
 
     await schema.updateQuestionSchema.validateAsync(req.body, {
@@ -426,7 +426,7 @@ const updateQuestion = async (req, res) => {
     const ownershipCheck = await checkQuizOwnership(
       Quiz,
       question.quiz_id,
-      req.user.id
+      req.user.id,
     );
     if (ownershipCheck.error) {
       return res
@@ -450,7 +450,7 @@ const updateQuestion = async (req, res) => {
       },
       {
         where: { id: question_id },
-      }
+      },
     );
 
     if (imagePath) {
@@ -461,7 +461,7 @@ const updateQuestion = async (req, res) => {
       if (existingImage) {
         await QuestionImage.update(
           { image_url: imagePath },
-          { where: { question_id } }
+          { where: { question_id } },
         );
       } else {
         await QuestionImage.create({
@@ -506,7 +506,7 @@ const updateQuestion = async (req, res) => {
 const generateQuestion = async (req, res) => {
   try {
     const { error, value } = teacherSchema.generateQuestionSchema.validate(
-      req.body
+      req.body,
     );
     if (error)
       return res.status(400).json({ message: error.details[0].message });
@@ -605,7 +605,7 @@ const deleteQuestion = async (req, res) => {
     const ownershipCheck = await checkQuizOwnership(
       Quiz,
       question.quiz_id,
-      req.user.id
+      req.user.id,
     );
     if (ownershipCheck.error) {
       return res
@@ -631,7 +631,7 @@ const deleteQuestion = async (req, res) => {
       // Delete image file from server
       const imagePath = questionImage.image_url.replace(
         `/uploads/${req.user.id}/`,
-        ""
+        "",
       );
       const fullPath = `./uploads/${req.user.id}/${imagePath}`;
       if (fs.existsSync(fullPath)) {
@@ -739,7 +739,7 @@ const getQuizDetail = async (req, res) => {
         q.image_url = formatImageUrl(req, image?.image_url);
 
         return q;
-      })
+      }),
     );
 
     res.status(200).json({
@@ -896,12 +896,12 @@ const getQuizAccuracy = async (req, res) => {
     const questionStats = questions.map((question) => {
       //ambil jawaban dari quiz yg dicari
       const questionAnswers = submissionAnswers.filter(
-        (answer) => answer.question_id === question.id
+        (answer) => answer.question_id === question.id,
       );
 
       const total_answered = questionAnswers.length;
       const correct_answers = questionAnswers.filter(
-        (answer) => answer.is_correct
+        (answer) => answer.is_correct,
       ).length;
 
       //hitung berapa yg salah
@@ -1285,7 +1285,7 @@ const getDashboardAnalytics = async (req, res) => {
           difficulty: 100 - accuracy, // Semakin kecil akurasi, semakin sulit (Difficulty naik)
           failures: wrong,
         };
-      })
+      }),
     );
 
     // =======================================================
@@ -1434,38 +1434,41 @@ const getAllTransactions = async (req, res) => {
     const transactions = await Transaction.findAll({
       order: [["created_at", "DESC"]],
       include: [
-        // 1. Join ke Subscription (Jika transaksinya beli paket)
+        {
+          model: User,
+          attributes: ["name", "email"],
+        },
         {
           model: Subscription,
-          as: "subscription_detail", // Pastikan alias ini ada di models/index.js
-          attributes: ["status", "price"],
+          as: "subscription_detail",
+          attributes: ["id_subs", "status", "price"],
         },
-        // 2. Join ke Item (Jika transaksinya beli Avatar/Item)
         {
-          model: Item,
-          as: "item_detail", // Pastikan alias ini ada di models/index.js
+          model: Avatar,
+          as: "avatar_detail",
           attributes: ["name", "price"],
         },
       ],
     });
 
-    // FORMATTING DATA
-    // Kita harus menentukan 'item_name' berdasarkan kategori
     const formattedData = transactions.map((t) => {
-      const trx = t.get({ plain: true }); // Ubah ke plain object
-
+      const trx = t.get({ plain: true });
       let finalItemName = "Unknown Item";
 
-      // LOGIKANYA:
-      if (trx.category === "subscription" && trx.subscription_detail) {
-        finalItemName = `Paket ${trx.subscription_detail.status}`;
-      } else if (trx.category === "item" && trx.item_detail) {
-        finalItemName = trx.item_detail.name;
+      if (trx.category === "subscription") {
+        finalItemName = trx.subscription_detail
+          ? `Paket ${trx.subscription_detail.status}`
+          : `Paket Unknown (ID: ${trx.subscription_id})`;
+      } else if (trx.category === "item") {
+        finalItemName = trx.avatar_detail
+          ? `Avatar ${trx.avatar_detail.name}`
+          : `Item Unknown (ID: ${trx.item_id})`;
       }
 
       return {
         ...trx,
-        item_name: finalItemName, // <--- Ini yang dibaca Flutter
+        user_name: trx.User ? trx.User.name : "Unknown User",
+        item_name: finalItemName,
       };
     });
 

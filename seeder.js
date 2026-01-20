@@ -32,12 +32,11 @@ async function seedDatabase() {
       DROP TABLE IF EXISTS questionimage;
       DROP TABLE IF EXISTS question;
       DROP TABLE IF EXISTS quiz;
-      DROP TABLE IF EXISTS useravatar;   -- BARU
+      DROP TABLE IF EXISTS useravatar;
       DROP TABLE IF EXISTS transaction;
       DROP TABLE IF EXISTS userlog;
       DROP TABLE IF EXISTS user;
-      DROP TABLE IF EXISTS item;         -- BARU
-      DROP TABLE IF EXISTS avatar;       -- BARU
+      DROP TABLE IF EXISTS avatar;
       DROP TABLE IF EXISTS subscription;
 
       -- A. TABEL REFERENCE UTAMA
@@ -61,19 +60,6 @@ async function seedDatabase() {
         PRIMARY KEY (id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-      CREATE TABLE item (
-        id INT NOT NULL AUTO_INCREMENT,
-        name VARCHAR(100) NOT NULL,
-        description TEXT,
-        price DECIMAL(10, 2) DEFAULT 0,
-        type ENUM('subscription', 'avatar', 'consumable') DEFAULT 'consumable',
-        reference_id INT, 
-        image_url TEXT,
-        is_active TINYINT(1) DEFAULT 1,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        PRIMARY KEY (id)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
       -- B. USER & PIVOT
       CREATE TABLE user (
@@ -221,20 +207,6 @@ async function seedDatabase() {
        ('Golden Graduate', 'Legendary avatar for top scorers', 'https://api.dicebear.com/7.x/avataaars/svg?seed=Goldy', 100000, 'legendary')`,
     );
 
-    // C. Items (Katalog Toko)
-    // Kita buat item yang merepresentasikan Subscription dan Avatar
-    console.log("Seeding Items (Shop Catalog)...");
-    await connection.query(
-      `INSERT INTO item (name, description, price, type, reference_id, image_url) VALUES 
-        -- Item Subscription
-        ('Premium Subscription', 'Unlock all features', 50000, 'subscription', 2, NULL),
-        
-        -- Item Avatars (Reference ID sesuai urutan insert avatar di atas)
-        ('Cool Cat Avatar', 'Unlock the Cool Cat look', 15000, 'avatar', 2, 'https://api.dicebear.com/7.x/avataaars/svg?seed=Pepper'),
-        ('Robo Teacher Avatar', 'Unlock the Robot look', 25000, 'avatar', 3, 'https://api.dicebear.com/7.x/bottts/svg?seed=Tech'),
-        ('Golden Graduate Avatar', 'Unlock the Legendary look', 100000, 'avatar', 4, 'https://api.dicebear.com/7.x/avataaars/svg?seed=Goldy')`,
-    );
-
     // === 4. SYNC USERS FROM FIREBASE ===
     console.log("Fetching Users from Firebase...");
     const listUsersResult = await admin.auth().listUsers(1000);
@@ -329,10 +301,10 @@ async function seedDatabase() {
     // TR003: Beli Item Avatar (Robo Teacher)
     await connection.query(`
       INSERT INTO transaction (id, user_id, category, subscription_id, item_id, amount, status, payment_method, created_at) VALUES
-      ('TR001', 'TE001', 'subscription', 2, NULL, 50000, 'success', 'Bank Transfer', '2024-11-20 10:00:00'),
+      ('TR001', 'TE001', 'subscription', 4, NULL, 50000, 'success', 'Bank Transfer', '2024-11-20 10:00:00'),
       ('TR002', 'ST001', 'item', NULL, 2, 15000, 'success', 'E-Wallet', '2024-12-01 09:00:00'),
       ('TR003', 'TE001', 'item', NULL, 3, 25000, 'success', 'Credit Card', '2024-11-21 10:00:00'),
-      ('TR004', 'ST003', 'subscription', 2, NULL, 50000, 'success', 'E-Wallet', '2024-12-05 14:00:00')
+      ('TR004', 'ST003', 'subscription', 4, NULL, 50000, 'success', 'E-Wallet', '2024-12-05 14:00:00')
     `);
 
     // B. User Inventory (UserAvatar)

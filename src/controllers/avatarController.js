@@ -1,4 +1,4 @@
-const { Avatar, Item, User, UserAvatar } = require("../models");
+const { Avatar, User, UserAvatar, Transaction } = require("../models");
 const sequelize = require("../database/connection");
 const Joi = require("joi");
 const { Op } = require("sequelize");
@@ -57,20 +57,6 @@ const createAvatar = async (req, res) => {
         image_url: imageUrl, // ← PAKAI INI
         price: value.price,
         rarity: value.rarity,
-        is_active: true,
-      },
-      { transaction },
-    );
-
-    // 2. Create Shop Item
-    await Item.create(
-      {
-        name: `${value.name} Avatar`,
-        description: value.description,
-        price: value.price,
-        type: "avatar",
-        reference_id: newAvatar.id,
-        image_url: imageUrl,
         is_active: true,
       },
       { transaction },
@@ -245,8 +231,22 @@ const buyAvatar = async (req, res) => {
       return res.status(403).json({ message: "Insufficient points" });
     }
 
+    // Generate Transaction ID
+    const latestTransaction = await Transaction.findOne({
+      attributes: ["id"],
+      raw: true,
+      order: [["id", "DESC"]],
+    });
+
+    let newNum = 1;
+    if (latestTransaction && latestTransaction.id) {
+      const lastNum = parseInt(latestTransaction.id.substring(2)) || 0;
+      newNum = lastNum + 1;
+    }
+    const transactionId = `TR${String(newNum).padStart(3, "0")}`;
+
     user.points -= parseInt(avatar.price);
-    
+
     await user.save();
 
     await UserAvatar.create({
@@ -255,11 +255,22 @@ const buyAvatar = async (req, res) => {
       purchased_at: new Date(),
     });
 
+    await Transaction.create({
+      id: transactionId,
+      user_id: userId,
+      item_id: avatar_id,
+      category: "item",
+      amount: avatar.price,
+      status: "success",
+      payment_method: "points",
+    });
+
     return res.status(200).json({
       message: "Avatar bought successfully",
       current_avatar_id: avatar_id,
     });
   } catch (error) {
+    console.error("Buy Avatar Error:", error);
     return res.status(500).json({ message: error.message });
   }
 };

@@ -5,6 +5,9 @@ const {
   SubmissionAnswer,
   User,
   QuestionImage,
+  Transaction,
+  Subscription,
+  Avatar,
 } = require("../models");
 const { get } = require("../routes/studentRoutes");
 const fetchGeminiEvaluation = require("../utils/fetchGeminiEvaluation");
@@ -923,16 +926,14 @@ const getTransactionHistory = async (req, res) => {
     const transactions = await Transaction.findAll({
       where: { user_id: userId },
       include: [
-        // Include Subscription
         {
           model: Subscription,
           as: "subscription_detail",
           attributes: ["status"],
         },
-        // Include Item (Katalog Barang) - Pastikan relasi sudah dibuat di index.js
         {
-          model: Item,
-          as: "item_detail", // Anda perlu tambah relasi ini di index.js
+          model: Avatar,
+          as: "avatar_detail",
           attributes: ["name"],
         },
       ],
@@ -942,11 +943,10 @@ const getTransactionHistory = async (req, res) => {
     const formatted = transactions.map((t) => {
       let itemName = "Unknown";
 
-      // Logic penentuan nama
       if (t.category === "subscription" && t.subscription_detail) {
         itemName = `Paket ${t.subscription_detail.status}`;
-      } else if (t.category === "item" && t.item_detail) {
-        itemName = t.item_detail.name; // Nama Avatar/Item
+      } else if (t.category === "item" && t.avatar_detail) {
+        itemName = `Avatar ${t.avatar_detail.name}`;
       }
 
       return {
