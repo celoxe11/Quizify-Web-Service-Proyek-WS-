@@ -7,4 +7,5 @@ module.exports = {
   host: process.env.DB_HOST,
   dialect: "mysql",
   port: process.env.DB_PORT,
+  connectionName: process.env.CLOUD_SQL_CONNECTION_NAME
 };

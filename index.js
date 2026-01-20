@@ -13,11 +13,15 @@ const shopRoutes = require("./src/routes/shopRoutes");
 const cors = require("cors");
 
 const admin = require("firebase-admin");
-const serviceAccount = require("./serviceAccountKey.json");
-
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
+try {
+  const serviceAccount = require("./serviceAccountKey.json");
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+  });
+} catch (e) {
+  // If the file is missing (common in production), use default credentials
+  admin.initializeApp();
+}
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
@@ -38,22 +42,36 @@ app.get("/", (req, res) => {
   res.json({ message: "Welcome to Quizify API" });
 });
 
-// sequelize
-//   .authenticate()
-//   .then(() => {
-//     console.log("Database connected");
-//     app.listen(3000, "0.0.0.0", () =>
-//       console.log("Server running on http://0.0.0.0:3000"),
-//     );
-//   })
-//   .catch((err) => console.error("Database connection failed:", err));
+sequelize
+  .authenticate()
+  .then(() => {
+    console.log("Database connected");
+    app.listen(3000, "0.0.0.0", () =>
+      console.log("Server running on http://0.0.0.0:3000"),
+    );
+  })
+  .catch((err) => console.error("Database connection failed:", err));
 
-exports.api = onRequest({ maxInstances: 10 }, async (req, res) => {
-  try {
-    await sequelize.authenticate();
-    return app(req, res);
-  } catch (err) {
-    console.error("Database connection failed:", err);
-    res.status(500).send("Internal Server Error");
-  }
-});
+// Force redeploy with Cloud SQL: 2026-01-19 16:35
+// exports.api = onRequest(
+//   {
+//     maxInstances: 10,
+//     vpcConnector: "firebase-connector",
+//     vpcConnectorEgressSettings: "ALL_TRAFFIC",
+//     // Use the actual connection name string here to ensure Firebase mounts the socket
+//     cloudSqlInstances: [
+//       "proyek-mmp-484808:asia-southeast2:db-proyek-mmp-development",
+//     ],
+//   },
+//   async (req, res) => {
+//     try {
+//       await sequelize.authenticate().then(() => {
+//         console.log("Database Connected");
+//       });
+//       return app(req, res);
+//     } catch (err) {
+//       console.error("Database connection failed:", err);
+//       res.status(500).send(err);
+//     }
+//   },
+// );
