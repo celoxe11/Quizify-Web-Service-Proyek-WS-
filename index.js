@@ -43,36 +43,42 @@ app.get("/", (req, res) => {
   res.json({ message: "Welcome to Quizify API" });
 });
 
-sequelize
-  .authenticate()
-  .then(() => {
-    console.log("Database connected");
-    app.listen(3000, "0.0.0.0", () =>
-      console.log("Server running on http://0.0.0.0:3000"),
-    );
-  })
-  .catch((err) => console.error("Database connection failed:", err));
+const connectDB = async () => {
+  try {
+    await sequelize.authenticate();
+    console.log(`Database connected in ${process.env.NODE_ENV} mode`);
+  } catch (err) {
+    console.error("Database connection failed:", err);
+    throw err; // Propagate error to stop the server/function if needed
+  }
+};
 
-// Force redeploy with Cloud SQL: 2026-01-19 16:35
-// exports.api = onRequest(
-//   {
-//     maxInstances: 10,
-//     vpcConnector: "firebase-connector",
-//     vpcConnectorEgressSettings: "ALL_TRAFFIC",
-//     // Use the actual connection name string here to ensure Firebase mounts the socket
-//     cloudSqlInstances: [
-//       "proyek-mmp-484808:asia-southeast2:db-proyek-mmp-development",
-//     ],
-//   },
-//   async (req, res) => {
-//     try {
-//       await sequelize.authenticate().then(() => {
-//         console.log("Database Connected");
-//       });
-//       return app(req, res);
-//     } catch (err) {
-//       console.error("Database connection failed:", err);
-//       res.status(500).send(err);
-//     }
-//   },
-// );
+// LOCAL DEVELOPMENT SERVER
+if (process.env.NODE_ENV !== "production") {
+  connectDB().then(() => {
+    const PORT = process.env.PORT || 3000;
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  });
+}
+
+// PRODUCTION FIREBASE FUNCTION
+exports.api = onRequest(
+  {
+    region: "asia-southeast2",
+    maxInstances: 10,
+    cloudSqlInstances: [process.env.CLOUD_SQL_CONNECTION_NAME],
+  },
+  async (req, res) => {
+    try {
+      await sequelize.authenticate().then(() => {
+        console.log("Database Connected");
+      });
+      return app(req, res);
+    } catch (err) {
+      console.error("Database connection failed:", err);
+      res.status(500).send(err);
+    }
+  },
+);
