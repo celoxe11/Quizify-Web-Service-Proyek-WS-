@@ -41,7 +41,8 @@ const createAvatar = async (req, res) => {
     let imageUrl = value.image_url || null;
 
     if (req.file) {
-      imageUrl = `${req.protocol}://${req.get("host")}/uploads/avatars/${req.file.filename}`;
+      // Use Firebase URL from the uploadAvatarToFirebase middleware
+      imageUrl = req.file.firebaseUrl;
     }
 
     if (!imageUrl) {
@@ -80,19 +81,49 @@ const createAvatar = async (req, res) => {
 
 // 3. UPDATE AVATAR
 const updateAvatar = async (req, res) => {
-  const { id } = req.params;
+  const schema = Joi.object({
+    id: Joi.number().required(),
+    name: Joi.string().min(3).max(100).required(),
+    description: Joi.string().allow(null, "").optional(),
+    image_url: Joi.string().uri().optional(), // OPTIONAL
+    price: Joi.number().min(0).required(),
+    rarity: Joi.string()
+      .valid("common", "rare", "epic", "legendary")
+      .required(),
+  });
+
+  const bodyAndParam = {
+    id: req.params.id,
+    ...req.body,
+  };
+
+  const { error, value } = schema.validate(bodyAndParam);
+  if (error) {
+    return res.status(400).json({
+      message: "Validation error",
+      detail: error.details[0].message,
+    });
+  }
+
   try {
-    const avatar = await Avatar.findByPk(id);
+    const avatar = await Avatar.findByPk(value.id);
     if (!avatar) return res.status(404).json({ message: "Avatar not found" });
 
+    let newImageUrl = value.image_url || null;
+
+    if (req.file) {
+      // Use Firebase URL from the uploadAvatarToFirebase middleware
+      newImageUrl = req.file.firebaseUrl;
+    }
+
     // Update fields
-    if (req.body.name) avatar.name = req.body.name;
-    if (req.body.price) avatar.price = req.body.price;
-    if (req.body.rarity) avatar.rarity = req.body.rarity;
-    if (req.body.image_url) avatar.image_url = req.body.image_url;
+    if (value.name) avatar.name = value.name;
+    if (value.price) avatar.price = value.price;
+    if (value.rarity) avatar.rarity = value.rarity;
+    if (newImageUrl) avatar.image_url = newImageUrl;
 
     // Restore jika di-update statusnya
-    if (req.body.is_active !== undefined) avatar.is_active = req.body.is_active;
+    if (value.is_active !== undefined) avatar.is_active = value.is_active;
 
     await avatar.save();
     return res.status(200).json({ message: "Avatar updated", data: avatar });

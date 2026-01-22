@@ -12,6 +12,11 @@ const {
 } = require("../models");
 const { checkQuizOwnership, formatImageUrl } = require("../utils/helpers");
 const generateQuestionGemini = require("../utils/generateQuestionGemini");
+const {
+  uploadBase64ToFirebase,
+  deleteFileFromFirebase,
+  isFirebaseUrl,
+} = require("../utils/firebaseImageHelper");
 
 const saveQuizWithQuestions = async (req, res) => {
   const transaction = await sequelize.transaction();
@@ -19,7 +24,7 @@ const saveQuizWithQuestions = async (req, res) => {
   try {
     const { error, value } = teacherSchema.saveQuizWithQuestionsSchema.validate(
       req.body,
-      { abortEarly: false } // Get all validation errors
+      { abortEarly: false }, // Get all validation errors
     );
     if (error) {
       await transaction.rollback();
@@ -89,7 +94,7 @@ const saveQuizWithQuestions = async (req, res) => {
           status: status,
           quiz_code: quiz_code || null,
         },
-        { where: { id: quiz_id }, transaction }
+        { where: { id: quiz_id }, transaction },
       );
 
       quizId = quiz_id;
@@ -117,23 +122,19 @@ const saveQuizWithQuestions = async (req, res) => {
 
       // Find questions to delete (existing questions not in the request)
       const questionsToDelete = existingQuestions.filter(
-        (q) => !requestedQuestionIds.includes(q.id)
+        (q) => !requestedQuestionIds.includes(q.id),
       );
 
       // Delete removed questions and their images
       for (const questionToDelete of questionsToDelete) {
-        // Delete associated images
+        // Delete associated images from Firebase
         const questionImages = await QuestionImage.findAll({
           where: { question_id: questionToDelete.id },
         });
 
         for (const img of questionImages) {
-          // Delete image file from server
-          const imagePath = img.image_url.replace(`/uploads/${userId}/`, "");
-          const fullPath = `./src/uploads/${userId}/${imagePath}`;
-          if (fs.existsSync(fullPath)) {
-            fs.unlinkSync(fullPath);
-          }
+          // Delete image file from Firebase Cloud Storage
+          await deleteFileFromFirebase(img.image_url);
           await QuestionImage.destroy({ where: { id: img.id }, transaction });
         }
 
@@ -172,14 +173,8 @@ const saveQuizWithQuestions = async (req, res) => {
           quiz_code: quiz_code || null,
           created_by: userId,
         },
-        { transaction }
+        { transaction },
       );
-    }
-
-    // Ensure user upload directory exists
-    const userUploadDir = `./src/uploads/${userId}`;
-    if (!fs.existsSync(userUploadDir)) {
-      fs.mkdirSync(userUploadDir, { recursive: true });
     }
 
     // Get highest question ID to generate new IDs for new questions only
@@ -233,7 +228,7 @@ const saveQuizWithQuestions = async (req, res) => {
             options,
             is_generated: questionData.is_generated || false,
           },
-          { where: { id: questionId }, transaction }
+          { where: { id: questionId }, transaction },
         );
         newQuestion = await Question.findByPk(questionId);
       } else {
@@ -249,7 +244,7 @@ const saveQuizWithQuestions = async (req, res) => {
             options,
             is_generated: questionData.is_generated || false,
           },
-          { transaction }
+          { transaction },
         );
       }
 
@@ -264,10 +259,18 @@ const saveQuizWithQuestions = async (req, res) => {
             questionData.question_image.startsWith("/uploads/") ||
             questionData.question_image.startsWith("/api/uploads/")
           ) {
-            // It's an existing image URL, normalize it to database format
-            imageUrl = questionData.question_image
-              .replace(/^https?:\/\/[^\/]+/, "") // Remove protocol and host
-              .replace(/^\/api/, ""); // Remove /api prefix if present
+            // It's an existing image URL - keep it as is
+            imageUrl = questionData.question_image;
+
+            // If it's a Firebase URL, keep the full URL
+            if (isFirebaseUrl(imageUrl)) {
+              // Already a Firebase URL, use as is
+            } else {
+              // Old format URL - normalize it
+              imageUrl = questionData.question_image
+                .replace(/^https?:\/\/[^\/]+/, "") // Remove protocol and host
+                .replace(/^\/api/, ""); // Remove /api prefix if present
+            }
 
             // Check if this image record already exists for this question
             const existingImageRecord = await QuestionImage.findOne({
@@ -283,29 +286,18 @@ const saveQuizWithQuestions = async (req, res) => {
                   image_url: imageUrl,
                   uploaded_at: new Date(),
                 },
-                { transaction }
+                { transaction },
               );
             }
           } else {
-            // It's a new base64 image, process and save it
-            // Remove data URI prefix if present (e.g., "data:image/png;base64,")
-            const base64Data = questionData.question_image.replace(
-              /^data:image\/\w+;base64,/,
-              ""
+            // It's a new base64 image, upload to Firebase
+            const { firebaseUrl } = await uploadBase64ToFirebase(
+              questionData.question_image,
+              userId,
+              questionId,
             );
-            const buffer = Buffer.from(base64Data, "base64");
 
-            // Generate unique filename
-            const timestamp = Date.now();
-            const randomString = Math.random().toString(36).substring(2, 15);
-            const filename = `question_${questionId}_${timestamp}_${randomString}.png`;
-            const filepath = path.join(userUploadDir, filename);
-
-            // Save image to file system
-            fs.writeFileSync(filepath, buffer);
-
-            // Create image URL
-            imageUrl = `/uploads/${userId}/${filename}`;
+            imageUrl = firebaseUrl;
 
             // Delete old image for this question if it exists
             const oldImage = await QuestionImage.findOne({
@@ -313,15 +305,9 @@ const saveQuizWithQuestions = async (req, res) => {
             });
 
             if (oldImage && oldImage.image_url !== imageUrl) {
-              // Delete old image file from server
-              const oldImagePath = oldImage.image_url.replace(
-                `/uploads/${userId}/`,
-                ""
-              );
-              const oldFullPath = `./src/uploads/${userId}/${oldImagePath}`;
-              if (fs.existsSync(oldFullPath)) {
-                fs.unlinkSync(oldFullPath);
-              }
+              // Delete old image from Firebase
+              await deleteFileFromFirebase(oldImage.image_url);
+
               // Delete old image record
               await QuestionImage.destroy({
                 where: { id: oldImage.id },
@@ -337,13 +323,13 @@ const saveQuizWithQuestions = async (req, res) => {
                 image_url: imageUrl,
                 uploaded_at: new Date(),
               },
-              { transaction }
+              { transaction },
             );
           }
         } catch (imageError) {
           console.error(
             `Error processing image for question ${questionId}:`,
-            imageError
+            imageError,
           );
           // Continue without image if there's an error
         }
@@ -411,12 +397,8 @@ const deleteQuiz = async (req, res) => {
       ],
     });
     for (const img of existingQuestionImages) {
-      // Delete image file from server
-      const imagePath = img.image_url.replace(`/uploads/${userId}/`, "");
-      const fullPath = `./src/uploads/${userId}/${imagePath}`;
-      if (fs.existsSync(fullPath)) {
-        fs.unlinkSync(fullPath);
-      }
+      // Delete image file from Firebase Cloud Storage
+      await deleteFileFromFirebase(img.image_url);
       await QuestionImage.destroy({ where: { id: img.id }, transaction });
     }
     // Delete questions
@@ -434,7 +416,7 @@ const deleteQuiz = async (req, res) => {
 const generateQuestion = async (req, res) => {
   try {
     const { error, value } = teacherSchema.generateQuestionSchema.validate(
-      req.body
+      req.body,
     );
     if (error) {
       return res.status(400).json({ message: error.details[0].message });
@@ -704,12 +686,12 @@ const getQuizAccuracy = async (req, res) => {
     const questionStats = questions.map((question) => {
       //ambil jawaban dari quiz yg dicari
       const questionAnswers = submissionAnswers.filter(
-        (answer) => answer.question_id === question.id
+        (answer) => answer.question_id === question.id,
       );
 
       const total_answered = questionAnswers.length;
       const correct_answers = questionAnswers.filter(
-        (answer) => answer.is_correct
+        (answer) => answer.is_correct,
       ).length;
 
       //hitung berapa yg salah

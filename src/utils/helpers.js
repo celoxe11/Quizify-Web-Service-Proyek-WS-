@@ -17,27 +17,34 @@ const parseIncorrectAnswers = (incorrectAnswers) => {
 
 const checkQuizOwnership = async (Quiz, quizId, userId) => {
   const quiz = await Quiz.findOne({
-    where: { id: quizId }
+    where: { id: quizId },
   });
-  
+
   if (!quiz) {
     return { error: "Kuis tidak ditemukan", code: 404 };
   }
-  
+
   if (quiz.created_by !== userId) {
     return { error: "Anda tidak punya akses untuk kuis ini", code: 403 };
   }
-  
+
   return { quiz };
 };
 
 const formatImageUrl = (req, imagePath) => {
   if (!imagePath) return null;
+
+  // If it's already a full URL (Firebase or other), return as-is
+  if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
+    return imagePath;
+  }
+
+  // Otherwise, it's a relative path (old format), add base URL
   return `${req.protocol}://${req.get("host")}/api${imagePath}`;
 };
 
 module.exports = {
   parseIncorrectAnswers,
   checkQuizOwnership,
-  formatImageUrl
+  formatImageUrl,
 };

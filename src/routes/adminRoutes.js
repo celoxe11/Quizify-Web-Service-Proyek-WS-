@@ -1,12 +1,5 @@
 const express = require("express");
 const {
-  parseForm,
-  saveFile,
-  replaceQuestionImage,
-  upload,
-} = require("../middleware/uploadFile");
-
-const {
   getLog,
   createTierList,
   getTierList,
@@ -29,13 +22,28 @@ const {
   updateUser,
   updateTierList,
   getAllTransactions,
-  getStudentsAnswersBySession
+  getStudentsAnswersBySession,
 } = require("../controllers/adminController");
 
 const logActivity = require("../middleware/logActivity");
 const { authenticate, isAdmin } = require("../middleware/authMiddleware");
 const { saveQuizWithQuestions } = require("../controllers/teacherController");
-const { getAllAvatars, createAvatar, updateAvatar, deleteAvatar } = require("../controllers/avatarController");
+const {
+  getAllAvatars,
+  createAvatar,
+  updateAvatar,
+  deleteAvatar,
+} = require("../controllers/avatarController");
+const {
+  parseForm,
+  saveFile,
+  replaceQuestionImage,
+} = require("../middleware/uploadFileFirebase");
+const {
+  uploadAvatarToFirebase,
+  replaceAvatarInFirebase,
+  deleteFileFromFirebase,
+} = require("../middleware/uploadAvatarFirebase");
 const uploadAvatar = require("../middleware/uploadAvatar");
 
 const router = express.Router();
@@ -45,7 +53,7 @@ router.post(
   authenticate,
   isAdmin,
   logActivity("Admin: Save Quiz with Questions"),
-  saveQuizWithQuestions
+  saveQuizWithQuestions,
 );
 
 router.delete(
@@ -53,7 +61,7 @@ router.delete(
   authenticate,
   isAdmin,
   logActivity("Admin: Delete Quiz"),
-  deleteQuiz
+  deleteQuiz,
 );
 
 router.get(
@@ -61,21 +69,21 @@ router.get(
   // authenticate,
   // logActivity("Admin View Log Access"),
   // isAdmin,
-  getAllQuestions
+  getAllQuestions,
 );
 router.get(
   "/quizzes",
   // authenticate,
   // logActivity("Admin View Log Access"),
   // isAdmin,
-  getAllQuizzes
+  getAllQuizzes,
 );
 router.get(
   "/logaccess",
   authenticate,
   logActivity("Admin View Log Access"),
   isAdmin,
-  getLog
+  getLog,
 );
 
 router.post(
@@ -83,42 +91,42 @@ router.post(
   authenticate,
   logActivity("Admin: Create Tier List"),
   isAdmin,
-  createTierList
+  createTierList,
 );
 router.put(
   "/subscriptions/:id",
   authenticate,
   isAdmin,
   logActivity("Admin: Update Subscription Tier"),
-  updateTierList
+  updateTierList,
 );
 router.get(
   "/subscriptions",
   authenticate,
   logActivity("Admin: get Subscription Tier List"),
   isAdmin,
-  getTierList
+  getTierList,
 );
 router.post(
   "/quiz",
   authenticate,
   isAdmin,
   logActivity("Admin: Create Quiz"),
-  saveQuizWithQuestions
+  saveQuizWithQuestions,
 );
 router.put(
   "/quiz/:quiz_id",
   authenticate,
   isAdmin,
   logActivity("Admin: Update Quiz"),
-  saveQuizWithQuestions
+  saveQuizWithQuestions,
 );
 router.post(
   "/endquiz/:session_id",
   authenticate,
   isAdmin,
   logActivity("Admin: End quiz"),
-  endQuiz
+  endQuiz,
 );
 
 router.post(
@@ -128,7 +136,7 @@ router.post(
   parseForm("gambar_soal"), // Parse form but don't save yet
   saveFile(), // Save file only if limit check passes
   logActivity("Admin: Create Question"),
-  createQuestion
+  createQuestion,
 );
 router.put(
   "/question",
@@ -137,77 +145,77 @@ router.put(
   parseForm("gambar_soal"), // Parse form but keep file in memory
   replaceQuestionImage(), // Replace existing image with new one
   logActivity("Admin: Update Question"),
-  updateQuestion
+  updateQuestion,
 );
 router.post(
   "/generatequestion",
   authenticate,
   isAdmin,
   logActivity("Admin: Generate Question"),
-  generateQuestion
+  generateQuestion,
 );
 router.delete(
   "/question/:question_id",
   authenticate,
   isAdmin,
   logActivity("Admin: Delete Question"),
-  deleteQuestion
+  deleteQuestion,
 );
 router.get(
   "/myquiz",
   // authenticate,
   // isAdmin,
   // logActivity("Admin: Get Admin's Quiz"),
-  getUsersQuiz
+  getUsersQuiz,
 );
 router.get(
   "/quiz/detail/:quiz_id",
   authenticate,
   isAdmin,
   logActivity("Admin: Get Quiz Details"),
-  getQuizDetail
+  getQuizDetail,
 );
 router.get(
   "/quiz/results/:quiz_id",
   authenticate,
   isAdmin,
   logActivity("Admin: Get Quiz Results"),
-  getQuizResult
+  getQuizResult,
 );
 router.get(
   "/quiz/answers/:quiz_id/:student_id",
   authenticate,
   isAdmin,
   logActivity("Admin: Get a Student's Answers"),
-  getStudentsAnswers
+  getStudentsAnswers,
 );
 router.get(
   "/quiz/accuracy/:quiz_id",
   authenticate,
   isAdmin,
   logActivity("Admin: Get Quiz Accuracy Result"),
-  getQuizAccuracy
+  getQuizAccuracy,
 );
 router.get(
   "/users",
   authenticate,
   isAdmin,
   logActivity("Admin: Get All Users"),
-  getAllUsers
+  getAllUsers,
 );
 router.put(
   "/users/:id",
   authenticate,
   isAdmin,
   logActivity("Admin: Update User"),
-  updateUser
+  updateUser,
 );
 router.get(
   "/analytics",
   authenticate,
   isAdmin,
   // logActivity("Admin: View Analytics"), // Opsional jika ada middleware log
-  getDashboardAnalytics
+  getDashboardAnalytics,
 );
 
 router.patch(
@@ -215,48 +223,42 @@ router.patch(
   authenticate,
   isAdmin,
   logActivity("Admin Change User Status"), // Jika middleware log aktif
-  toggleUserStatus
+  toggleUserStatus,
 );
 router.get(
   "/transactions",
   authenticate,
   isAdmin,
-  logActivity("Admin: Get Transaction"), 
-  getAllTransactions
+  logActivity("Admin: Get Transaction"),
+  getAllTransactions,
 );
 
 // AVATAR MANAGEMENT
-router.get(
-  "/avatars", 
-  authenticate, 
-  isAdmin, 
-  getAllAvatars
-);
+router.get("/avatars", authenticate, isAdmin, getAllAvatars);
 router.post(
-  "/avatars", 
-  authenticate, 
-  isAdmin, 
-  uploadAvatar.single('avatar_file'),
-  createAvatar
+  "/avatars",
+  // authenticate,
+  // isAdmin,
+  uploadAvatar.single("image_url"),
+  uploadAvatarToFirebase,
+  createAvatar,
 );
 router.put(
-  "/avatars/:id", 
-  authenticate, 
-  isAdmin, 
-  updateAvatar
+  "/avatars/:id",
+  authenticate,
+  isAdmin,
+  uploadAvatar.single("image_url"),
+  replaceAvatarInFirebase,
+  updateAvatar,
 );
-router.patch(
-  "/avatars/:id/status", 
-  authenticate, 
-  isAdmin, 
-  deleteAvatar
-);
+router.patch("/avatars/:id/status", authenticate, isAdmin, deleteAvatar);
+router.delete("/avatars/:id", authenticate, isAdmin, deleteAvatar);
 router.get(
   "/quiz/answers/session/:session_id/:student_id",
   authenticate,
   isAdmin,
   logActivity("Admin: Get a Student's Answers"),
-  getStudentsAnswersBySession
+  getStudentsAnswersBySession,
 );
 
 module.exports = router;

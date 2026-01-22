@@ -1,20 +1,9 @@
 const multer = require("multer");
-const path = require("path");
 
-// Lokasi penyimpanan
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "uploads/avatars");
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const uniqueName =
-      "avatar-" + Date.now() + "-" + Math.round(Math.random() * 1e9) + ext;
-    cb(null, uniqueName);
-  },
-});
+// Use memory storage to keep files in memory before uploading to Firebase
+const memoryStorage = multer.memoryStorage();
 
-// Filter tipe file
+// File filter for avatars
 const fileFilter = (req, file, cb) => {
   const allowed = ["image/png", "image/jpeg", "image/jpg", "image/svg+xml"];
   if (allowed.includes(file.mimetype)) {
@@ -24,8 +13,9 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
+// Multer configuration for parsing multipart form data
 const uploadAvatar = multer({
-  storage,
+  storage: memoryStorage,
   fileFilter,
   limits: { fileSize: 2 * 1024 * 1024 }, // max 2MB
 });

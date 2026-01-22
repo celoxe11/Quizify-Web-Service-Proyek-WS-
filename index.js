@@ -12,16 +12,9 @@ const paymentRoutes = require("./src/routes/paymentRoutes");
 const shopRoutes = require("./src/routes/shopRoutes");
 const cors = require("cors");
 
-const admin = require("firebase-admin");
-try {
-  const serviceAccount = require("./serviceAccountKey.json");
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
-} catch (e) {
-  // If the file is missing (common in production), use default credentials
-  admin.initializeApp();
-}
+// Import Firebase Admin from centralized config
+// This ensures Firebase is initialized before any routes are loaded
+const { admin } = require("./src/config/firebase");
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
