@@ -10,13 +10,13 @@ try {
       const serviceAccount = require("../../serviceAccountKey.json");
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
-        storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+        storageBucket: process.env.STORAGE_BUCKET_NAME,
       });
       console.log("Firebase Admin initialized with service account");
     } catch (e) {
       // If service account file is missing (common in production), use default credentials
       admin.initializeApp({
-        storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+        storageBucket: process.env.STORAGE_BUCKET_NAME,
       });
       console.log("Firebase Admin initialized with default credentials");
     }
@@ -29,7 +29,7 @@ try {
   console.log("Firebase Storage bucket configured successfully");
 } catch (error) {
   console.error("Error initializing Firebase:", error);
-  console.error("Make sure FIREBASE_STORAGE_BUCKET is set in .env");
+  console.error("Make sure STORAGE_BUCKET_NAME is set in .env");
 }
 
 module.exports = { admin, bucket };
